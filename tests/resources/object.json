@@ -1,0 +1,21 @@
+{
+  "operation": {
+    "responses": {
+      "200": {
+        "schema": {
+          "properties": {
+            "boolean": {
+              "type": "boolean"
+            },
+            "number": {
+              "type": "number"
+            },
+            "string": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
