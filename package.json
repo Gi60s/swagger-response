@@ -1,0 +1,32 @@
+{
+  "name": "swagger-response",
+  "version": "0.0.1",
+  "description": "Assisted swagger response generation for objects and arrays, following the swagger definition file.",
+  "main": "index.js",
+  "bin": {
+    "swagger-response": "swagger-response.js"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "mocha tests/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gi60s/swagger-response.git"
+  },
+  "keywords": [
+    "swagger"
+  ],
+  "author": "James Speirs",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/Gi60s/swagger-response/issues"
+  },
+  "homepage": "https://github.com/Gi60s/swagger-response#readme",
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.4.5"
+  }
+}
