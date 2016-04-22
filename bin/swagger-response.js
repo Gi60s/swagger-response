@@ -200,11 +200,14 @@ function schemaObject(obj, schema, chain) {
             }
         });
 
-        store[key] = {};
         if (type === 'array') {
+            store[key] = {};
             schemaArray(store[key], prop, chain);
         } else if (type === 'object' && hasProperties) {
+            store[key] = {};
             schemaObject(store[key], prop, chain.concat([key]));
+        } else {
+            store[key] = void 0;
         }
 
         // set default
