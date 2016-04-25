@@ -1,6 +1,6 @@
 {
   "name": "swagger-response",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Assisted swagger response generation for objects and arrays, following the swagger definition file.",
   "main": "index.js",
   "bin": {
