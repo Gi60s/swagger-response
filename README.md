@@ -1,3 +1,5 @@
+# NOTE: This module is still a work in progress
+
 # swagger-response
 
 Working with the [swagger package](https://www.npmjs.com/package/swagger), this package provides a module that assists in constructing responses. [Swagger](https://www.npmjs.com/package/swagger) verifies that the response object matches the definition file when you try to send the response.
