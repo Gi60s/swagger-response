@@ -47,6 +47,12 @@ function SwaggerResponse(req, responseCode) {
 SwaggerResponse.injectParameters = function(recursive, obj, data) {
     const rxs = [];
 
+    if (arguments.length === 2) {
+        obj = arguments[0];
+        data = arguments[1];
+        recursive = false;
+    }
+
     Object.keys(data).forEach(function(key) {
         rxs.push({
             rx: new RegExp('\\{' + key + '\\}', 'g'),
@@ -142,7 +148,7 @@ function schemaArray(obj, schema, chain) {
 
     getAllProperties(Array.prototype)
         .forEach(function(key) {
-            if (!/^_/.test(key) && !~writeMutators.indexOf(key)) {
+            if (!/^_/.test(key) && !~writeMutators.indexOf(key) && typeof Array.prototype[key] === 'function') {
                 obj[key] = function() {
                     return store[key].apply(store, arguments);
                 }
