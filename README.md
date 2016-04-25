@@ -1,13 +1,8 @@
-# NOTE: This module is still a work in progress
-
 # swagger-response
 
-Working with the [swagger package](https://www.npmjs.com/package/swagger), this package provides a module that assists in constructing responses. [Swagger](https://www.npmjs.com/package/swagger) verifies that the response object matches the definition file when you try to send the response.
+The [npm swagger package](https://www.npmjs.com/package/swagger) is an awesome tool for turning your swagger definition files into a working API, but one thing it does not do is help you to form the response.
 
-This module takes the validation a step further through the following features:
-
-1. Automatic population of default property values.
-2. Validation occurs for each value set.
+This package provides a tool that makes it easy to build valid swagger responses that match your swagger definitions.
 
 ## Installation
 
@@ -15,51 +10,120 @@ This module takes the validation a step further through the following features:
 $ npm install swagger-response
 ```
 
-## Usage
+## Examples
+
+### Basic Example
+
+The following example is trivial, but it does show that the swagger response object is built from the beginning to match the requirements of the swagger response definition.
+
+Using the [Example Swagger Definition File](#example-swagger-definition-file):
+
+**pets.js**
+
+```js
+const Response = require('swagger-response');
+
+exports.listPets = function(req, res) {
+    const response = Response(req, 200);
+    res.json(response);    // returns JSON: []
+};
+```
+
+### Setting Values Example
+
+Using the [Example Swagger Definition File](#example-swagger-definition-file):
+
+**pets.js**
+
+```js
+const Response = require('swagger-response');
+
+exports.listPets = function(req, res) {
+    const response = Response(req, 200);
+    response.push({ id: 1, name: 'Mittens' });
+    response[0].tag = 'Cat';
+    res.json(response);    // returns JSON: [{"id":1,"name":"Mittens","tag":"Cat"}]
+};
+```
+
+### Property Error Example
+
+Using the [Example Swagger Definition File](#example-swagger-definition-file):
+
+**pets.js**
+
+```js
+const Response = require('swagger-response');
+
+exports.listPets = function(req, res) {
+    const response = Response(req, 200);
+    response.push({ id: 1, name: 'Mittens' });
+    response[0].type = 'Cat';       // throws an Error - there is no cat type
+    res.json(response);             // returns an error message
+};
+```
+
+### Type Error Example
+
+Using the [Example Swagger Definition File](#example-swagger-definition-file):
+
+**pets.js**
+
+```js
+const Response = require('swagger-response');
+
+exports.listPets = function(req, res) {
+    const response = Response(req, 200);
+    response.push('hello');         // throw an Error - the item must be an object
+    response.push({ id: 1, name: 'Mittens' });
+    response[0].tag = 1234;         // throws an Error - the tag expects a string
+    res.json(response);             // returns an error message
+};
+```
+
+## Caveats
+
+### Management Limitations
+
+The swagger response object can only manage mutable variables, otherwise you'll need to make assignments and that would overwrite the swagger response object. To prevent this, if you attempt to use a swagger response object for a primitive response then an error will be thrown.
+
+### Arrays
+
+The swagger response object does not use the Array object, instead it uses an object that mimics the Array but provides validation. The only case where this may be a problem is when you are trying to set a value to an index that is beyond the length of the existing array.
+
+If you must set a value beyond the length of the array, use the `set` function.
+
+**Example**
+
+```js
+const Response = require('swagger-response');
+
+exports.listPets = function(req, res) {
+    const response = Response(req, 200);
+    response.set(1, { id: 2, name: 'Jack' });   // array length is now 2
+    response[0] = { id: 1, name: 'Mittens' };   // valid because the array length > 0
+    res.json(response); // returns [{"id":1,"name":"Mittens"},{"id":2,"name":"Jack"}]
+};
+```
+
+## Example Swagger Definition File
+
+All examples on this page use this same swagger definition file:
 
 ```json
 {
   "swagger": "2.0",
-  "info": {
-    "version": "1.0.0",
-    "title": "Swagger Petstore",
-    "license": {
-      "name": "MIT"
-    }
-  },
-  "host": "petstore.swagger.io",
-  "basePath": "/v1",
-  "schemes": [
-    "http"
-  ],
-  "consumes": [
-    "application/json"
-  ],
-  "produces": [
-    "application/json"
-  ],
   "paths": {
     "/pets": {
+      "x-swagger-router-controller": "pets",
       "get": {
         "summary": "List all pets",
         "operationId": "listPets",
         "responses": {
           "200": {
             "description": "An paged array of pets",
-            "headers": {
-              "x-next": {
-                "type": "string",
-                "description": "A link to the next page of responses"
-              }
-            },
             "schema": {
               "$ref": "#/definitions/Pets"
-            }
-          },
-          "default": {
-            "description": "unexpected error",
-            "schema": {
-              "$ref": "#/definitions/Error"
             }
           }
         }
@@ -90,34 +154,7 @@ $ npm install swagger-response
       "items": {
         "$ref": "#/definitions/Pet"
       }
-    },
-    "Error": {
-      "required": [
-        "code",
-        "message"
-      ],
-      "properties": {
-        "code": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "message": {
-          "type": "string"
-        }
-      }
     }
   }
 }
-```
-
-```js
-exports.myOperationId = function(req, res) {
-    const response = Response(req, 200);
-
-    addresses.createAddress(params.personId, params.addressLine1, params.addressLine2, params.city, params.state, params.zipcode);
-
-    response.values = addresses.getAddresses(params.personId);
-
-    res.json(response);
-};
 ```
