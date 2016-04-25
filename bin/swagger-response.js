@@ -7,12 +7,11 @@ module.exports = SwaggerResponse;
  * If the response schema is not an object though then this function will throw an error.
  * @param {IncomingMessage} req
  * @param {string, number} [responseCode="default"]
- * @returns {SwaggerResponse}
+ * @returns {object}
  * @throws {Error} in case of unexpected structure.
  * @constructor
  */
 function SwaggerResponse(req, responseCode) {
-    const factory = Object.create(SwaggerResponse.prototype);
     const responses = getPropertyChainValue(req, 'swagger.operation.responses', '');
     responseCode = '' + responseCode;
 
@@ -27,12 +26,10 @@ function SwaggerResponse(req, responseCode) {
 
     // build the schema object
     if (type === 'object') {
-        schemaObject(factory, schema, []);
+        return schemaObject(schema, []);
     } else {
-        schemaArray(factory, schema, []);
+        return schemaArray(schema, []);
     }
-
-    return factory;
 }
 
 /**
@@ -101,74 +98,85 @@ SwaggerResponse.manageable = function(req, responseCode) {
     }
 };
 
-/**
- * Validate a schema against a value.
- * @param {object} schema
- * @param {*} value
- * @returns {boolean, Error} Returns true if valid or an Error object if invalid.
- */
-SwaggerResponse.validate = function(schema, value) {
-    const type = getPropertyType(schema);
-    if (type === 'object') {
-        try {
-            const obj = schemaObject({}, schema, []);
-            Object.keys(value).forEach(function (key) {
-                obj[key] = value[key];
-            });
-        } catch (e) {
-            return e;
-        }
-    } else if (type === 'array') {
-        try {
-            const obj = schemaObject({}, schema, []);
-            value.forEach(function(item, index) {
-                obj.set(index, item);
-            });
-        } catch (e) {
-            return e;
-        }
-    } else if (type !== 'undefined' && type !== typeof value) {
-        return Error('Invalid type {' + (typeof value) + '} expected {' + type + '}');
-    }
-    return true;
-};
 
-
-
-function schemaArray(obj, schema, chain) {
+function schemaArray(schema, chain) {
     const prop = schema.items;
     const hasProperties =  prop.hasOwnProperty('properties');
-    const type = getPropertyType(prop);
+    const prototype = {};
     const store = [];
+    const type = getPropertyType(prop);
     const validator = getValidateFunction(schema.items, chain);
     const writeMutators = ['fill', 'push', 'splice', 'unshift'];
+    var prevLength = 0;
 
+    function updateIndexGetSet() {
+        var i;
+        if (prevLength <= store.length) {
+            for (i = prevLength; i <= store.length; i++) {
+                (function(index) {
+                    Object.defineProperty(obj, index, {
+                        enumerable: true,
+                        configurable: true,
+                        get: function () {
+                            return obj.get(index);
+                        },
+                        set: function (value) {
+                            return obj.set(index, value);
+                        }
+                    });
+                })(i);
+            }
+        } else {
+            for (i = prevLength; i > store.length; i--) {
+                (function(index) {
+                    Object.defineProperty(obj, index, {
+                        enumerable: false,
+                        configurable: true,
+                        get: function() {
+                            return void 0;
+                        }
+                    });
+                })(i);
+            }
+        }
+        prevLength = store.length;
+    }
 
-    // TODO: add optional proxy support
+    // TODO: add proxy support - once NodeJS has proxies
 
+    // make all array functions callable through this object.
     getAllProperties(Array.prototype)
         .forEach(function(key) {
             if (!/^_/.test(key) && !~writeMutators.indexOf(key) && typeof Array.prototype[key] === 'function') {
-                obj[key] = function() {
+                prototype[key] = function() {
                     return store[key].apply(store, arguments);
-                }
+                };
             }
         });
 
+    // define length property
+    Object.defineProperty(prototype, 'length', {
+        get: function() {
+            return store.length;
+        }
+    });
 
-    obj.fill = function(value, start, end) {
+    // define the fill function
+    prototype.fill = function(value, start, end) {
         if (arguments.length < 2) start = 0;
         if (arguments.length < 3) end = store.length;
         for (var i = start; i < end; i++) obj.set(i, value);
     };
 
-    obj.push = function() {
+    // define the push function
+    prototype.push = function() {
         for (var i = 0; i < arguments.length; i++) {
             obj.set(store.length, arguments[i]);
         }
     };
 
-    obj.splice = function(start, deleteCount) {
+    // define the splice function
+    prototype.splice = function(start, deleteCount) {
         const args = [ start, deleteCount ];
         var i;
         for (i = 2; i < arguments.length; i++) args.push(null);
@@ -179,45 +187,50 @@ function schemaArray(obj, schema, chain) {
         }
     };
 
-    obj.unshift = function(args) {
+    // define the unshift property
+    prototype.unshift = function (args) {
         store.unshift.apply(store, arguments);
         for (var i = 0; i < arguments.length; i++) obj.set(i, arguments[i]);
     };
 
-    obj.get = function(index) {
+    // define the get function
+    prototype.get = function(index) {
         return store[index];
     };
 
-    obj.set = function(index, value) {
+    // define the set function
+    prototype.set = function(index, value) {
         // run the validator
         validator(value, '[' + index + ']');
 
         if (type === 'object' && hasProperties) {
-            store[index] = schemaObject({}, schema.items, chain.concat([ index ]));
+            store[index] = schemaObject(schema.items, chain.concat([ index ]));
             Object.keys(value).forEach(function (k) {
                 store[index][k] = value[k];
             });
         } else {
             store[index] = value;
         }
+
+        updateIndexGetSet();
     };
-
-
 
     /**
      * Get JSON object representation.
      * @returns {Array}
      */
-    obj.toJSON = function() {
+    prototype.toJSON = function() {
         return store.slice(0);
     };
 
-    Object.freeze(obj);
+    const obj = Object.create(prototype);
+    updateIndexGetSet();
     return obj;
 }
 
 
-function schemaObject(obj, schema, chain) {
+function schemaObject(schema, chain) {
+    const obj = {};
     const store = {};
 
     Object.keys(schema.properties).forEach(function(key) {
@@ -246,11 +259,9 @@ function schemaObject(obj, schema, chain) {
         });
 
         if (type === 'array') {
-            store[key] = {};
-            schemaArray(store[key], prop, chain);
+            store[key] = schemaArray(prop, chain);
         } else if (type === 'object' && hasProperties) {
-            store[key] = {};
-            schemaObject(store[key], prop, chain.concat([key]));
+            store[key] = schemaObject(prop, chain.concat([key]));
         } else {
             store[key] = void 0;
         }
