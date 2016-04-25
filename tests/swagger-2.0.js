@@ -59,23 +59,23 @@ describe('swagger-response-2.0', function() {
             response = Response(req, 200);
         });
 
-        it('does not accept a string', function() {
+        it('string fails', function() {
             expect(function() { response.foo = 'foo'; }).to.throw(Error);
         });
 
-        it('accepts an empty object', function() {
+        it('empty object passes', function() {
             var o = {};
             expect(function() { response.foo = o; }).to.not.throw(Error);
             expect(response.foo).to.haveOwnProperty('string');
             expect(response.foo.string).to.equal(undefined);
         });
 
-        it('does not accept an invalid object', function() {
+        it('invalid object fails', function() {
             var o = { string: true };
             expect(function() { response.foo = o; }).to.throw(Error);
         });
 
-        it('does accept a valid object', function() {
+        it('valid object passes', function() {
             var o = { string: 'string' };
             expect(function() { response.foo = o; }).to.not.throw(Error);
             expect(response.foo).to.deep.equal(o);
@@ -99,24 +99,24 @@ describe('swagger-response-2.0', function() {
             response = Response(req, 200);
         });
 
-        it('empty array', function() {
+        it('initializes to empty array', function() {
             var str = JSON.stringify(response);
             expect(str).to.equal('[]');
         });
 
-        it('add empty string to array', function() {
+        it('add empty string to array passes', function() {
             response.push('');
             var str = JSON.stringify(response);
             expect(str).to.equal('[""]');
         });
 
-        it('add string to array', function() {
+        it('add string to array passes', function() {
             response.push('hello');
             var str = JSON.stringify(response);
             expect(str).to.equal('["hello"]');
         });
 
-        it('add number to array', function() {
+        it('add number to array fails', function() {
             expect(function() { response.push(5); }).to.throw(Error);
         });
 
@@ -139,12 +139,22 @@ describe('swagger-response-2.0', function() {
             response = Response(req, 200);
         });
 
-        it('empty array', function() {
+        it('initializes to empty array', function() {
             var str = JSON.stringify(response);
             expect(str).to.equal('[]');
         });
 
-        // TODO: add tests
+        it('add empty object passes', function() {
+            expect(function() { response.push({}); }).to.not.throw(Error);
+        });
+
+        it('add object with valid property passes', function() {
+            expect(function() { response.push({ city: 'Foo' }); }).to.not.throw(Error);
+        });
+
+        it('add object with invalid property fails', function() {
+            expect(function() { response.push({ foo: 'Foo' }); }).to.throw(Error);
+        });
     });
     
     
