@@ -76,6 +76,13 @@ SwaggerResponse.injectParameters = function(recursive, obj, data) {
     }
 };
 
+/**
+ * Determine whether the response can be managed. This will be false unless the schema returns
+ * an object or an array.
+ * @param {IncomingMessage} req
+ * @param {string, number} responseCode
+ * @returns {boolean}
+ */
 SwaggerResponse.manageable = function(req, responseCode) {
     try {
         responseCode = '' + responseCode;
@@ -86,6 +93,38 @@ SwaggerResponse.manageable = function(req, responseCode) {
     } catch (e) {
         return false;
     }
+};
+
+/**
+ * Validate a schema against a value.
+ * @param {object} schema
+ * @param {*} value
+ * @returns {boolean, Error} Returns true if valid or an Error object if invalid.
+ */
+SwaggerResponse.validate = function(schema, value) {
+    const type = getPropertyType(schema);
+    if (type === 'object') {
+        try {
+            const obj = schemaObject({}, schema, []);
+            Object.keys(value).forEach(function (key) {
+                obj[key] = value[key];
+            });
+        } catch (e) {
+            return e;
+        }
+    } else if (type === 'array') {
+        try {
+            const obj = schemaObject({}, schema, []);
+            value.forEach(function(item, index) {
+                obj.set(index, item);
+            });
+        } catch (e) {
+            return e;
+        }
+    } else if (type !== 'undefined' && type !== typeof value) {
+        return Error('Invalid type {' + (typeof value) + '} expected {' + type + '}');
+    }
+    return true;
 };
 
 
