@@ -83,6 +83,10 @@ exports.listPets = function(req, res) {
 
 ## Caveats
 
+### Swagger Versions
+
+Currently only version 2.x is supported.
+
 ### Management Limitations
 
 The swagger response object can only manage mutable variables, otherwise you'll need to make assignments and that would overwrite the swagger response object. To prevent this, if you attempt to use a swagger response object for a primitive response then an error will be thrown.
