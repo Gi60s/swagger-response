@@ -58,7 +58,7 @@ const Response = require('swagger-response');
 exports.listPets = function(req, res) {
     const response = Response(req, 200);
     response.push({ id: 1, name: 'Mittens' });
-    response[0].type = 'Cat';       // throws an Error - there is no cat type
+    response[0].type = 'Cat';       // throws an Error - there is no type property
     res.json(response);             // returns an error message
 };
 ```
