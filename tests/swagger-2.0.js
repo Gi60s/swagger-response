@@ -178,9 +178,27 @@ describe('swagger-response-2.0', function() {
     });
 
     describe('#injectParameters', function() {
-        
-        it('recursive defaults to false', function() {
-            
+        var obj;
+
+        beforeEach(function() {
+            obj = {
+                foo: 'asdf{foo}jkl',
+                bar: {
+                    baz: 'qwer{foo}uiop'
+                }
+            };
+        });
+
+        it('recursive defaults to true', function() {
+            Response.injectParameters(obj, { foo: '***'});
+            expect(obj.foo).to.equal('asdf***jkl');
+            expect(obj.bar.baz).to.equal('qwer***uiop');
+        });
+
+        it('recursive can be set to false', function() {
+            Response.injectParameters(false, obj, { foo: '***'});
+            expect(obj.foo).to.equal('asdf***jkl');
+            expect(obj.bar.baz).to.equal('qwer{foo}uiop');
         });
         
     });
