@@ -36,7 +36,7 @@ function SwaggerResponse(req, responseCode) {
  * Look for property values that are strings and perform variable value substitution. If a
  * string has a "{varName}" in it and the data object has a "varName" property then the
  * value from that property is cast to a string and injected in place of "{varName}".
- * @param {boolean} [recursive=false] Whether to recursively look for strings in sub-objects.
+ * @param {boolean} [recursive=true] Whether to recursively look for strings in sub-objects.
  * @param {object, object[]} obj The object (or objects) to perform substitution on.
  * @param {object} data The data object to use to identify string substitutions and to
  * provide values.
@@ -47,7 +47,7 @@ SwaggerResponse.injectParameters = function(recursive, obj, data) {
     if (arguments.length === 2) {
         obj = arguments[0];
         data = arguments[1];
-        recursive = false;
+        recursive = true;
     }
 
     Object.keys(data).forEach(function(key) {
