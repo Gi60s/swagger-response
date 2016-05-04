@@ -152,6 +152,18 @@ Sends a valid response where the `{petId}` within string values is replaced with
 ]
 ```
 
+## Debugging
+
+If you are attempting to evaluate the response object it is best to get it's plain object representation. To get the plain object that is built from the response object, use the `toJSON` function.
+
+```js
+exports.listPets = function(req, res) {
+    const response = Response(req, 200);
+    response.push({ id: 1, name: 'Mittens', species: 'Cat' });
+    console.log(response.toJSON());
+    res.json(response);
+};
+```
 
 ## Caveats
 
