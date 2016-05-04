@@ -25,8 +25,14 @@ const Response = require('swagger-response');
 
 exports.listPets = function(req, res) {
     const response = Response(req, 200);
-    res.json(response);    // returns JSON: []
+    res.json(response);
 };
+```
+
+Sends a valid response:
+
+```js
+[]
 ```
 
 ### Setting Values Example
@@ -41,9 +47,31 @@ const Response = require('swagger-response');
 exports.listPets = function(req, res) {
     const response = Response(req, 200);
     response.push({ id: 1, name: 'Mittens' });
-    response[0].tag = 'Cat';
-    res.json(response);    // returns JSON: [{"id":1,"name":"Mittens","tag":"Cat"}]
+    response[0].species = 'Cat';
+    res.json(response);
 };
+```
+
+Sends a valid response:
+
+```json
+[
+  {
+    "id":1,
+    "name":"Mittens",
+    "tag":"Cat",
+    "links": {
+      "get": {
+        "href": "/pets/{petId}",
+        "method": "GET"
+      },
+      "update": {
+        "href": "/pets/{petId}",
+        "method": "PUT"
+      }
+    }
+  }
+]
 ```
 
 ### Property Error Example
@@ -63,6 +91,8 @@ exports.listPets = function(req, res) {
 };
 ```
 
+The error will output to the console, showing the line number where you did something wrong. This saves time because you don't need hunt around for where the invalid data was set.
+
 ### Type Error Example
 
 Using the [Example Swagger Definition File](#example-swagger-definition-file):
@@ -76,10 +106,52 @@ exports.listPets = function(req, res) {
     const response = Response(req, 200);
     response.push('hello');         // throw an Error - the item must be an object
     response.push({ id: 1, name: 'Mittens' });
-    response[0].tag = 1234;         // throws an Error - the tag expects a string
+    response[0].species = 1234;     // throws an Error - the tag expects a string
     res.json(response);             // returns an error message
 };
 ```
+
+The error will output to the console, showing the line number where you did something wrong. This saves time because you don't need hunt around for where the invalid data was set.
+
+### HATEOAS Example
+
+If you are using [HATEOAS](https://en.wikipedia.org/wiki/HATEOAS) in your responses (like the examples), there is also tool to help write those responses by performing variable substitution within strings.
+
+Using the [Example Swagger Definition File](#example-swagger-definition-file):
+
+**pets.js**
+
+```js
+exports.listPets = function(req, res) {
+    const response = Response(req, 200);
+    response.push({ id: 1, name: 'Mittens', species: 'Cat' });
+    Response.injectParameters(true, response[0], { petId: 1 }); // replace {petId} with 1
+    res.json(response);
+};
+```
+
+Sends a valid response where the `{petId}` within string values is replaced with `1`:
+
+```json
+[
+  {
+    "id":1,
+    "name":"Mittens",
+    "tag":"Cat",
+    "links": {
+      "get": {
+        "href": "/pets/1",
+        "method": "GET"
+      },
+      "update": {
+        "href": "/pets/1",
+        "method": "PUT"
+      }
+    }
+  }
+]
+```
+
 
 ## Caveats
 
@@ -90,6 +162,18 @@ Currently only version 2.x is supported.
 ### Management Limitations
 
 The swagger response object can only manage mutable variables, otherwise you'll need to make assignments and that would overwrite the swagger response object. To prevent this, if you attempt to use a swagger response object for a primitive response then an error will be thrown.
+
+To determine with code if the response can be managed, you can do the following:
+
+```js
+const Response = require('swagger-response');
+
+exports.listPets = function(req, res) {
+    if (Response.manageable(req, 200)) {
+        // the response can be managed
+    }
+};
+```
 
 ### Arrays
 
@@ -114,51 +198,86 @@ exports.listPets = function(req, res) {
 
 All examples on this page use this same swagger definition file:
 
-```json
-{
-  "swagger": "2.0",
-  "paths": {
-    "/pets": {
-      "x-swagger-router-controller": "pets",
-      "get": {
-        "summary": "List all pets",
-        "operationId": "listPets",
-        "responses": {
-          "200": {
-            "description": "An paged array of pets",
-            "schema": {
-              "$ref": "#/definitions/Pets"
-            }
-          }
-        }
-      }
-    }
-  },
-  "definitions": {
-    "Pet": {
-      "required": [
-        "id",
-        "name"
-      ],
-      "properties": {
-        "id": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "name": {
-          "type": "string"
-        },
-        "tag": {
-          "type": "string"
-        }
-      }
-    },
-    "Pets": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Pet"
-      }
-    }
-  }
-}
+```yaml
+swagger: "2.0"
+info:
+  version: "0.0.1"
+  title: Pets
+paths:
+  /pets:
+    x-swagger-router-controller: pets
+    get:
+      description: List all pets
+      operationId: listPets
+      responses:
+        200:
+          description: An paged array of pets
+          schema:
+            $ref: "#/definitions/Pets"
+  /pets/{petId}:
+    x-swagger-router-controller: pets
+    get:
+      description: Get a single pet.
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          description: The unique pet ID.
+          required: true
+          type: number
+      responses:
+        200:
+          description: A single pet.
+          schema:
+            $ref: "#/definitions/Pet"
+    put:
+      description: Update a pet.
+      operationId: updatePet
+      parameters:
+        - name: petId
+          in: path
+          description: The unique pet ID.
+          required: true
+          type: number
+      responses:
+        200:
+          description: A single pet.
+          schema:
+            $ref: "#/definitions/Pet"
+definitions:
+  hateoas:
+    properties:
+      get:
+        properties:
+          href:
+            type: string
+            default: "/pets/{petId}"
+          method:
+            type: string
+            default: GET
+      update:
+        properties:
+          href:
+            type: string
+            default: "/pets/{petId}"
+          method:
+            type: string
+            default: PUT
+  Pet:
+    properties:
+      links:
+        $ref: "#/definitions/hateoas"
+      id:
+        type: number
+      name:
+        type: string
+      species:
+        type: string
+  Pets:
+    type: array
+    items:
+      $ref: "#/definitions/Pet"
 ```
+
+
+
