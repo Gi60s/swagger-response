@@ -7,6 +7,48 @@ describe('swagger-response-2.0', function() {
 
     describe('#', function() {
 
+        describe('response code', function() {
+            var definitionContent;
+            var req;
+
+            before(function(done) {
+                fs.readFile(__dirname + '/resources/response-code.json', 'utf8', function(err, data) {
+                    if (err) return done(err);
+                    definitionContent = data;
+                    done();
+                })
+            });
+
+            beforeEach(function() {
+                req = { swagger: JSON.parse(definitionContent) };
+            });
+
+            it('found default without specifying response code', function() {
+                var response = Response(req);
+                expect(response).to.have.ownProperty('isDefault');
+            });
+
+            it('found default with specifying response code', function() {
+                var response = Response(req, 'default');
+                expect(response).to.have.ownProperty('isDefault');
+            });
+
+            it('found 200 with specifying response code as number', function() {
+                var response = Response(req, 200);
+                expect(response).to.have.ownProperty('is200');
+            });
+
+            it('found 200 with specifying response code as string', function() {
+                var response = Response(req, '200');
+                expect(response).to.have.ownProperty('is200');
+            });
+
+            it('could not find non-existent code', function() {
+                expect(function() { Response(req, '100'); }).to.throw(Error);
+            });
+
+        });
+
         describe('object', function() {
             var definitionContent;
             var response;
