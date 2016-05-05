@@ -4,7 +4,16 @@
       "default": {
         "schema": {
           "properties": {
-            "boolean": {
+            "isDefault": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "200": {
+        "schema": {
+          "properties": {
+            "is200": {
               "type": "boolean"
             }
           }
