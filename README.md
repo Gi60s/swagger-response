@@ -4,6 +4,15 @@ The [npm swagger package](https://www.npmjs.com/package/swagger) is an awesome t
 
 This package provides a tool that makes it easy to build valid swagger responses that match your swagger definitions.
 
+# Table of Contents
+
+* [Installation](#installation)
+* [Examples](#examples)
+* [API](#api)
+* [Debugging](#debugging)
+* [Caveats](#caveats)
+* [Example Swagger Definition File](#example-swagger-definition-file)
+
 ## Installation
 
 ```sh
@@ -152,6 +161,110 @@ Sends a valid response where the `{petId}` within string values is replaced with
 ]
 ```
 
+# API
+
+### Response ( req, [ responseCode ] )
+
+Get a response object. You can add / edit the properties / items to this object, but if you attempt to assign an invalid value to a property or if you attempt to assign a property that does not exist then an error will be throw immediately. The limitations imposed on this object will be those defined in your swagger document. Default values will be added automatically but can be modified.
+
+**Parameters**
+
+* **req** - The incoming request object provided by the server.
+* **responseCode** - The response code to look up in the swagger definition. Defaults to `default`.
+
+**Returns** an object
+
+**Examples**
+
+* [Basic Example](#basic-example)
+* [Setting Values Example](#setting-values-example)
+* [Property Error Example](#property-error-example)
+* [Type Error Example](#type-error-example)
+* [HATEOAS Example](#hateoas-example)
+
+### Response.injectParameters ( [ recursive, ] obj, data )
+
+Search an object's properties for values with strings. If a value has a string, perform a variable replacement where the string matches the (#response-injectParameterPattern) regular expression (defaults to {varName}).
+
+**Parameters**
+
+* **recursive** - Whether to recursively search the children of the `obj`. Defaults to `true`.
+* **obj** - The object to search.
+* **data** - An object map of variable names to replace with string values.
+
+**Returns** an object
+
+**Examples**
+
+* [HATEOAS Example](#hateoas-example)
+
+### Response.injectParameterPattern
+
+A property that defines how to perform string replacements. This property must be set to a function that maps string values to another value. For example, the following function (which just happens to be the default) will replace variable names surrounded by handle bars.
+
+```js
+Response.injectParameterPattern = function(value, data) {
+    var rx = /{([_$a-z][_$a-z0-9]*)}/ig;
+    var match;
+    var property;
+    while (match = rx.exec(value)) {
+        property = match[1];
+        if (data.hasOwnProperty(property)) {
+            value = value.replace(match[0], data[property]);
+        }
+    }
+    return value;
+}
+```
+
+For example:
+
+1. Given the string: `This {is} {adj} {is} it not`
+2. And the data: `{ is: 'was', adj: 'interesting' }`
+3. The result would be `This was interesting was it not`.
+
+
+For your convenience there are three patterns programmed for you already which you can assign:
+
+**colon**
+
+Replaces `:varName`.
+
+```js
+Response.injectParameterPattern = Response.injectorPattern.colon;
+```
+
+**doubleHandlebar**
+
+Replaces `{{varName}}`.
+
+```js
+Response.injectParameterPattern = Response.injectorPattern.doubleHandlebar;
+```
+
+**handlebar**
+
+Replaces `{varName}`.
+
+```js
+Response.injectParameterPattern = Response.injectorPattern.handlebar;
+```
+
+### Response.manageable ( req, [ responseCode ] )
+
+Determine whether a response can be managed. Only objects and arrays can be managed.
+
+**Parameters**
+
+* **req** - The incoming request object provided by the server.
+* **responseCode** - The response code to look up in the swagger definition. Defaults to `default`.
+
+**Returns** a boolean
+
+**Examples**
+
+* [Management Limitations](#management-limitations)
+
 ## Debugging
 
 If you are attempting to evaluate the response object it is best to get it's plain object representation. To get the plain object that is built from the response object, use the `toJSON` function.
@@ -189,7 +302,7 @@ exports.listPets = function(req, res) {
 
 ### Arrays
 
-The swagger response object does not use the Array object, instead it uses an object that mimics the Array but provides validation. The only case where this may be a problem is when you are trying to set a value to an index that is beyond the length of the existing array.
+The swagger response object does not use the Array object, instead it uses an object that mimics the Array while also providing validation for each item added to the array. The only case where this may be a problem is when you are trying to set a value to an index that is beyond the length of the existing array (i.e. array length is 2 and your trying to set the value at index 10).
 
 If you must set a value beyond the length of the array, use the `set` function.
 
