@@ -1,0 +1,15 @@
+{
+  "operation": {
+    "responses": {
+      "default": {
+        "schema": {
+          "properties": {
+            "boolean": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}
