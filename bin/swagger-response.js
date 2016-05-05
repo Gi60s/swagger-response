@@ -43,20 +43,12 @@ function SwaggerResponse(req, responseCode) {
  * provide values.
  */
 SwaggerResponse.injectParameters = function(recursive, obj, data) {
-    const rxs = [];
 
     if (arguments.length === 2) {
         obj = arguments[0];
         data = arguments[1];
         recursive = true;
     }
-
-    Object.keys(data).forEach(function(key) {
-        rxs.push({
-            rx: new RegExp('\\{' + key + '\\}', 'g'),
-            value: data[key]
-        });
-    });
 
     return inject(recursive, obj);
 
@@ -67,9 +59,7 @@ SwaggerResponse.injectParameters = function(recursive, obj, data) {
                 Object.keys(item).forEach(function(key) {
                     var value = item[key];
                     if (typeof value === 'string') {
-                        rxs.forEach(function(rx) {
-                            value = value.replace(rx.rx, rx.value);
-                        });
+                        value = SwaggerResponse.injectParameterPattern(value, data);
                         item[key] = value;
                     } else if (recursive && value && typeof value === 'object') {
                         inject(true, value);
@@ -79,6 +69,14 @@ SwaggerResponse.injectParameters = function(recursive, obj, data) {
         });
     }
 };
+
+SwaggerResponse.injectorPatterns = {
+    colon: injectorReplacement(function() { return /:([_$a-z][_$a-z0-9]*)/ig }),
+    doubleHandlebar: injectorReplacement(function() { return /{([_$a-z][_$a-z0-9]*)}/ig }),
+    handlebar: injectorReplacement(function() { return /{([_$a-z][_$a-z0-9]*)}/ig })
+};
+
+SwaggerResponse.injectParameterPattern = SwaggerResponse.injectorPatterns.handlebar;
 
 /**
  * Determine whether the response can be managed. This will be false unless the schema returns
@@ -362,5 +360,20 @@ function getValidateFunction(property, chain) {
                 (type === 'array' && !Array.isArray(value)) ||
                 typeof value !== type
             )) throw Error('Invalid type {' + type + '} for ' + fullChain + key);
+    };
+}
+
+function injectorReplacement(rxGenerator) {
+    return function(value, data) {
+        var rx = rxGenerator();
+        var match;
+        var property;
+        while (match = rx.exec(value)) {
+            property = match[1];
+            if (data.hasOwnProperty(property)) {
+                value = value.replace(match[0], data[property]);
+            }
+        }
+        return value;
     };
 }
