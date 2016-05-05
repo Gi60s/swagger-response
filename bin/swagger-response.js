@@ -82,11 +82,12 @@ SwaggerResponse.injectParameterPattern = SwaggerResponse.injectorPatterns.handle
  * Determine whether the response can be managed. This will be false unless the schema returns
  * an object or an array.
  * @param {IncomingMessage} req
- * @param {string, number} responseCode
+ * @param {string, number} [responseCode=default]
  * @returns {boolean}
  */
 SwaggerResponse.manageable = function(req, responseCode) {
     try {
+        if (arguments.length === 1) responseCode = 'default';
         responseCode = '' + responseCode;
         const responses = getPropertyChainValue(req, 'swagger.operation.responses', '');
         const schema = getPropertyChainValue(responses, responseCode + '.schema', '');
