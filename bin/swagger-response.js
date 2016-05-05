@@ -13,6 +13,7 @@ module.exports = SwaggerResponse;
  */
 function SwaggerResponse(req, responseCode) {
     const responses = getPropertyChainValue(req, 'swagger.operation.responses', '');
+    if (arguments.length === 1) responseCode = 'default';
     responseCode = '' + responseCode;
 
     // get the schema
