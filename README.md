@@ -231,7 +231,7 @@ For your convenience there are three patterns programmed for you already which y
 Replaces `:varName`.
 
 ```js
-Response.injectParameterPattern = Response.injectorPattern.colon;
+Response.injectParameterPattern = Response.injectorPatterns.colon;
 ```
 
 **doubleHandlebar**
@@ -239,7 +239,7 @@ Response.injectParameterPattern = Response.injectorPattern.colon;
 Replaces `{{varName}}`.
 
 ```js
-Response.injectParameterPattern = Response.injectorPattern.doubleHandlebar;
+Response.injectParameterPattern = Response.injectorPatterns.doubleHandlebar;
 ```
 
 **handlebar**
@@ -247,7 +247,7 @@ Response.injectParameterPattern = Response.injectorPattern.doubleHandlebar;
 Replaces `{varName}`.
 
 ```js
-Response.injectParameterPattern = Response.injectorPattern.handlebar;
+Response.injectParameterPattern = Response.injectorPatterns.handlebar;
 ```
 
 ### Response.manageable ( req, [ responseCode ] )
