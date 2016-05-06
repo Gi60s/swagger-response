@@ -242,6 +242,27 @@ describe('swagger-response-2.0', function() {
             expect(obj.foo).to.equal('asdf***jkl');
             expect(obj.bar.baz).to.equal('qwer{foo}uiop');
         });
+
+        it('colon replacement', function() {
+            const obj = { foo: 'asdf/:foo/jkl' };
+            Response.injectParameterPattern = Response.injectorPatterns.colon;
+            Response.injectParameters(obj, { foo: '***'});
+            expect(obj.foo).to.equal('asdf/***/jkl');
+        });
+
+        it('double handlebar replacement', function() {
+            const obj = { foo: 'asdf{{foo}}j{k}l' };
+            Response.injectParameterPattern = Response.injectorPatterns.doubleHandlebar;
+            Response.injectParameters(obj, { foo: '***', k: 'x'});
+            expect(obj.foo).to.equal('asdf***j{k}l');
+        });
+
+        it('handlebar replacement', function() {
+            const obj = { foo: 'asdf{foo}j{{k}}l' };
+            Response.injectParameterPattern = Response.injectorPatterns.handlebar;
+            Response.injectParameters(obj, { foo: '***', k: 'x'});
+            expect(obj.foo).to.equal('asdf***j{x}l');
+        });
         
     });
 
