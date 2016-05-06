@@ -72,7 +72,7 @@ SwaggerResponse.injectParameters = function(recursive, obj, data) {
 
 SwaggerResponse.injectorPatterns = {
     colon: injectorReplacement(function() { return /:([_$a-z][_$a-z0-9]*)/ig }),
-    doubleHandlebar: injectorReplacement(function() { return /{([_$a-z][_$a-z0-9]*)}/ig }),
+    doubleHandlebar: injectorReplacement(function() { return /{{([_$a-z][_$a-z0-9]*)}}/ig }),
     handlebar: injectorReplacement(function() { return /{([_$a-z][_$a-z0-9]*)}/ig })
 };
 
