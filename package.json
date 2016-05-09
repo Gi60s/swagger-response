@@ -14,7 +14,9 @@
     "url": "git+https://github.com/Gi60s/swagger-response.git"
   },
   "keywords": [
-    "swagger"
+    "swagger",
+    "response",
+    "validate"
   ],
   "author": "James Speirs",
   "license": "Apache-2.0",
