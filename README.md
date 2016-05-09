@@ -115,7 +115,7 @@ exports.listPets = function(req, res) {
     const response = Response(req, 200);
     response.push('hello');         // throw an Error - the item must be an object
     response.push({ id: 1, name: 'Mittens' });
-    response[0].species = 1234;     // throws an Error - the tag expects a string
+    response[0].species = 1234;     // throws an Error - species expects a string
     res.json(response);             // returns an error message
 };
 ```
