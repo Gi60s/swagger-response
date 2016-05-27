@@ -9,6 +9,7 @@ This package provides a tool that makes it easy to build valid swagger responses
 * [Installation](#installation)
 * [Examples](#examples)
 * [API](#api)
+* [Validation](#validation)
 * [Debugging](#debugging)
 * [Caveats](#caveats)
 * [Example Swagger Definition File](#example-swagger-definition-file)
