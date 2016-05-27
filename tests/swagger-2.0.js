@@ -80,10 +80,43 @@ describe('swagger-response-2.0', function() {
                 expect(response.string).to.equal('foo');
             });
 
+            it('string validates on pattern', function() {
+                expect(function() { response.string = 'bar' }).to.throw(Error);
+            });
+
+            it('string validates on min length', function() {
+                expect(function() { response.string = 'f' }).to.throw(Error);
+            });
+
+            it('string validates on max length', function() {
+                expect(function() { response.string = 'foofoofoo' }).to.throw(Error);
+            });
+
             it('number accepts number', function() {
                 expect(function() { response.number = 1 }).to.not.throw(Error);
                 expect(response.number).to.equal(1);
             });
+
+            it('number validates on minimum', function() {
+                expect(function() { response.number = -1 }).to.throw(Error);
+            });
+
+            it('number validates on exclusive minimum', function() {
+                expect(function() { response.number = 0 }).to.throw(Error);
+            });
+
+            it('number validates on maximum', function() {
+                expect(function() { response.number = 11 }).to.throw(Error);
+            });
+
+            it('number validates on exclusive maximum', function() {
+                expect(function() { response.number2 = 10 }).to.throw(Error);
+            });
+
+            it('cannot set non-defined property', function() {
+                expect(function() { response.number3 = 5; }).to.throw(Error);
+            });
+
         });
 
         describe('object within object', function() {

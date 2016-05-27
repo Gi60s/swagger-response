@@ -355,12 +355,65 @@ function getPropertyChainValue(root, chain, pathToRoot) {
 function getValidateFunction(property, chain) {
     const fullChain = getChainValue(chain);
     const type = getPropertyType(property);
+
+    function validate(value) {
+        var i;
+        var found;
+
+        // validate type
+        if (type === 'array' && !Array.isArray(value)) return 'Invalid type';
+        if (typeof value !== type) return 'Invalid type';
+
+        // validate number value
+        if (type === 'number') {
+
+            // validate maximum
+            if (property.hasOwnProperty('maximum')) {
+                if (property.exclusiveMaximum && value === property.maximum) return 'Value ' + value + ' over exclusive maximum ' + property.maximum;
+                if (value > property.maximum) return 'Value ' + value + ' over ' + (property.exclusiveMaximum ? 'exclusive ' : '') + 'maximum ' + property.maximum;
+            }
+
+            // validate minimum
+            if (property.hasOwnProperty('minimum')) {
+                if (property.exclusiveMinimum && value === property.minimum) return 'Value ' + value + ' under exclusive minimum ' + property.minimum;
+                if (value < property.minimum) return 'Value ' + value + ' under ' + (property.exclusiveMinimum ? 'exclusive ' : '') + 'minimum ' + property.minimum;
+            }
+
+            // validate multiple of
+            if (property.hasOwnProperty('multipleOf') && value % property.multipleOf !== 0) return 'Value ' + value + ' not a multiple of ' + property.multipleOf;
+
+        }
+
+        // validate string value
+        if (type === 'string') {
+
+            // validate max length
+            if (property.hasOwnProperty('maxLength') && value.length > property.maxLength) return 'Value ' + value + ' has length (' + value.length + ') above max length ' + property.maxLength;
+
+            // validate min length
+            if (property.hasOwnProperty('minLength') && value.length < property.minLength) return 'Value ' + value + ' has length (' + value.length + ') below min length ' + property.minLength;
+
+            // validate pattern
+            if (property.hasOwnProperty('pattern') && !(new RegExp(property.pattern)).test(value)) return 'Value ' + value + ' does not match pattern ' + property.pattern;
+        }
+
+        // enum validation
+        /*if (Array.isArray(property.enum)) {
+            found = false;
+            for (i = 0; i < property.enum.length; i++) {
+                if (valuesAreEqual(value, property.enum[i])) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return 'Value ' + value + ' does not match enum ' + property.enum;
+        }*/
+    }
+
     return function(value, key) {
+        var error = validate(value);
         if (!key) key = '';
-        if (type !== 'undefined' && (
-                (type === 'array' && !Array.isArray(value)) ||
-                typeof value !== type
-            )) throw Error('Invalid type {' + type + '} for ' + fullChain + key);
+        if (error) throw Error('Invalid value for ' + fullChain + key + ': ' + error);
     };
 }
 
@@ -377,4 +430,30 @@ function injectorReplacement(rxGenerator) {
         }
         return value;
     };
+}
+
+function valuesAreEqual(v1, v2) {
+    var i;
+    var k;
+    if (v1 === v2) {
+        return true;
+    } else if (Array.isArray(v1) && Array.isArray(v2)) {
+        if (v1.length !== v2.length) return false;
+        for (i = 0; i < v1.length; i++) {
+            if (!valuesAreEqual(v1[i], v2[i])) return false;
+        }
+        return true;
+    } else if (typeof v1 === 'object' && typeof v2 === 'object') {
+        const v1Keys = Object.keys(v1);
+        const v2Keys = Object.keys(v2);
+        if (v1Keys.length !== v2Keys.length) return false;
+        for (i = 0; i < v1Keys.length; i++) {
+            k = v1Keys[i];
+            if (!v2.hasOwnProperty(k)) return false;
+            if (!valuesAreEqual(v1[k], v2[k])) return false;
+        }
+        return true;
+    } else {
+        return false;
+    }
 }

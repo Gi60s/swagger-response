@@ -8,10 +8,21 @@
               "type": "boolean"
             },
             "number": {
-              "type": "number"
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 10
+            },
+            "number2": {
+              "type": "number",
+              "maximum": 10,
+              "exclusiveMaximum": true
             },
             "string": {
-              "type": "string"
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 7,
+              "pattern": "[fo]"
             }
           }
         }

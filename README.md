@@ -1,6 +1,6 @@
 # swagger-response
 
-The [npm swagger package](https://www.npmjs.com/package/swagger) is an awesome tool for turning your swagger definition files into a working API, but one thing it does not do is help you to form the response.
+The [npm swagger package](https://www.npmjs.com/package/swagger) is an awesome tool for turning your swagger definition files into a working API that will validates responses when they are sent. One thing it does not do is help you to build the response before sending.
 
 This package provides a tool that makes it easy to build valid swagger responses that match your swagger definitions.
 
@@ -264,6 +264,30 @@ Determine whether a response can be managed. Only objects and arrays can be mana
 **Examples**
 
 * [Management Limitations](#management-limitations)
+
+## Validation
+
+As you build the response object validations occur for every object property set and for every item added to an array. The following validations currently happen when setting values:
+
+- type
+- maximum
+- exclusiveMaximum
+- minimum
+- exclusiveMinimum
+- multipleOf
+- maxLength
+- minLength
+- pattern
+
+Some validations are not run during the response composition because it would make it very difficult to compose the result. These validation will still occur (assuming you've told swagger to do so) when the response is sent:
+
+- format
+- maxItems
+- minItems
+- uniqueItems
+- maxProperties
+- minProperties
+- enum
 
 ## Debugging
 
