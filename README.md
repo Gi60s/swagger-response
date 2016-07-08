@@ -69,7 +69,7 @@ Sends a valid response:
   {
     "id":1,
     "name":"Mittens",
-    "tag":"Cat",
+    "species":"Cat",
     "links": {
       "get": {
         "href": "/pets/{petId}",
