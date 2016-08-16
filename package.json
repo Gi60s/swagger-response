@@ -16,6 +16,8 @@
   "keywords": [
     "swagger",
     "response",
+    "build",
+    "compose",
     "validate"
   ],
   "author": "James Speirs",
