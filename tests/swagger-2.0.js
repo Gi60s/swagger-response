@@ -206,6 +206,14 @@ describe('swagger-response-2.0', function() {
                 expect(function() { response[0] = 1; }).to.throw(Error);
             });
 
+            it('add valid item by outside index passes', function() {
+                expect(function() { response[10] = 'ten'; }).to.not.throw(Error);
+            });
+
+            it('add invalid item by outside index fails', function() {
+                expect(function() { response[20] = 20; }).to.throw(Error);
+            });
+
         });
 
         describe('array of objects', function() {
