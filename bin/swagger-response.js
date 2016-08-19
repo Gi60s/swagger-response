@@ -1,17 +1,35 @@
 "use strict";
+const fs            = require('fs');
+const mwMetadata    = require('swagger-tools/middleware/swagger-metadata');
+const Promise       = require('bluebird');
+const yaml          = require('js-yaml');
+
+const metadata = function(req) {
+    const res = {};
+    return new Promise(function(resolve, reject) {
+        mwMetadata(req, res, function(err) {
+            if (err) return reject(err);
+            resolve();
+        });
+    });
+};
+const readFile = Promise.promisify(fs.readFile, { context: fs });
 
 module.exports = SwaggerResponse;
+
+var swaggerObject = null;
 
 /**
  * Get a managed object that will automatically make sure that you don't set values that you shouldn't.
  * If the response schema is not an object though then this function will throw an error.
- * @param {IncomingMessage} req
+ * @param {IncomingMessage, object} req
  * @param {string, number} [responseCode="default"]
  * @returns {object}
  * @throws {Error} in case of unexpected structure.
  * @constructor
  */
 function SwaggerResponse(req, responseCode) {
+
     const responses = getPropertyChainValue(req, 'swagger.operation.responses', '');
     if (arguments.length === 1) responseCode = 'default';
     responseCode = '' + responseCode;
@@ -32,6 +50,38 @@ function SwaggerResponse(req, responseCode) {
         return schemaArray(schema, []);
     }
 }
+
+/**
+ * Get a swagger response object that is isolated from a server request object. This is useful
+ * when you don't have a http server that has formed the request.
+ * @param {string} method The request method.
+ * @param {string} path The requested path.
+ * @param {string, number} responseCode
+ * @param {string} swaggerFilePath
+ */
+SwaggerResponse.lambda = function(method, path, responseCode, swaggerFilePath) {
+
+    //validate input parameters
+    if (typeof method !== 'string') return Promise.reject('Invalid method: ' + method);
+    if (typeof path !== 'string') return Promise.reject('Invalid path: ' + path);
+    if (!/\.(?:json|yaml)$/i.test(swaggerFilePath)) return Promise.reject('The swagger definition file path must be either a .yaml or .json file.');
+
+    const req = {
+        method: method,
+        url: path
+    };
+
+    return readFile(swaggerFilePath, 'utf8')
+        .then(function(content) {
+            swaggerObject = /\.json$/i.test(config.swagger) ?
+                JSON.parse(content) :
+                yaml.safeLoad(content);
+            return metadata(req);
+        })
+        .then(function() {
+            return SwaggerResponse(req, responseCode);
+        });
+};
 
 /**
  * Look for property values that are strings and perform variable value substitution. If a
@@ -70,16 +120,23 @@ SwaggerResponse.injectParameters = function(recursive, obj, data) {
     }
 };
 
+/**
+ * Some pre-programmed injector patterns to use for replacing placeholder values with actual values.
+ * @type {{colon, doubleHandlebar, handlebar}}
+ */
 SwaggerResponse.injectorPatterns = {
     colon: injectorReplacement(function() { return /:([_$a-z][_$a-z0-9]*)/ig }),
     doubleHandlebar: injectorReplacement(function() { return /{{([_$a-z][_$a-z0-9]*)}}/ig }),
     handlebar: injectorReplacement(function() { return /{([_$a-z][_$a-z0-9]*)}/ig })
 };
 
+/**
+ * Set the default injector pattern to use handlebar replacement.
+ */
 SwaggerResponse.injectParameterPattern = SwaggerResponse.injectorPatterns.handlebar;
 
 /**
- * Determine whether the response can be managed. This will be false unless the schema returns
+ * Determine whether the response can be managed. This will be false unless the response schema returns
  * an object or an array.
  * @param {IncomingMessage} req
  * @param {string, number} [responseCode=default]
@@ -95,6 +152,21 @@ SwaggerResponse.manageable = function(req, responseCode) {
         return type === 'object' || type === 'array';
     } catch (e) {
         return false;
+    }
+};
+
+/**
+ * Set the swagger file definition path.
+ * @param {string} filePath
+ */
+SwaggerResponse.swaggerFile = function(filePath) {
+    if (typeof filePath !== 'string' || !/\.(?:json|yaml)$/i.test(filePath)) {
+        throw Error('The swagger file path must be the file path to either the json or yaml swagger definition file.');
+    } else {
+        const content = fs.readFileSync(filePath, 'utf8');
+        swaggerObject = /\.json$/i.test(config.swagger) ?
+            JSON.parse(content) :
+            yaml.safeLoad(content);
     }
 };
 
