@@ -12,7 +12,7 @@ describe('swagger-response-2.0', function() {
             var req;
 
             before(function(done) {
-                fs.readFile(__dirname + '/resources/response-code.json', 'utf8', function(err, data) {
+                fs.readFile(__dirname + '/resources/partial/response-code.json', 'utf8', function(err, data) {
                     if (err) return done(err);
                     definitionContent = data;
                     done();
@@ -54,7 +54,7 @@ describe('swagger-response-2.0', function() {
             var response;
 
             before(function(done) {
-                fs.readFile(__dirname + '/resources/object.json', 'utf8', function(err, data) {
+                fs.readFile(__dirname + '/resources/partial/object.json', 'utf8', function(err, data) {
                     if (err) return done(err);
                     definitionContent = data;
                     done();
@@ -124,7 +124,7 @@ describe('swagger-response-2.0', function() {
             var response;
 
             before(function(done) {
-                fs.readFile(__dirname + '/resources/object-within-object.json', 'utf8', function(err, data) {
+                fs.readFile(__dirname + '/resources/partial/object-within-object.json', 'utf8', function(err, data) {
                     if (err) return done(err);
                     definitionContent = data;
                     done();
@@ -164,7 +164,7 @@ describe('swagger-response-2.0', function() {
             var response;
 
             before(function(done) {
-                fs.readFile(__dirname + '/resources/array-of-strings.json', 'utf8', function(err, data) {
+                fs.readFile(__dirname + '/resources/partial/array-of-strings.json', 'utf8', function(err, data) {
                     if (err) return done(err);
                     definitionContent = data;
                     done();
@@ -213,7 +213,7 @@ describe('swagger-response-2.0', function() {
             var response;
 
             before(function(done) {
-                fs.readFile(__dirname + '/resources/array-of-objects.json', 'utf8', function(err, data) {
+                fs.readFile(__dirname + '/resources/partial/array-of-objects.json', 'utf8', function(err, data) {
                     if (err) return done(err);
                     definitionContent = data;
                     done();
