@@ -231,7 +231,9 @@ describe('swagger-response-2.0', function() {
             });
 
             it('add empty object passes', function() {
-                expect(function() { response.push({}); }).to.not.throw(Error);
+                expect(function() {
+                    response.push({});
+                }).to.not.throw(Error);
             });
 
             it('add object with valid property passes', function() {

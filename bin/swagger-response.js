@@ -2,14 +2,18 @@
 const fs            = require('fs');
 const mwMetadata    = require('swagger-tools/middleware/swagger-metadata');
 const Promise       = require('bluebird');
+const tools         = require('swagger-tools');
 const yaml          = require('js-yaml');
 
-const metadata = function(req) {
+const metadata = function(req, swaggerObject) {
     const res = {};
+    const middleware = mwMetadata(swaggerObject);
     return new Promise(function(resolve, reject) {
-        mwMetadata(req, res, function(err) {
-            if (err) return reject(err);
-            resolve();
+        tools.initializeMiddleware(swaggerObject, function(middleware) {
+            middleware.swaggerMetadata(swaggerObject)(req, res, function(err, data) {
+                if (err) return reject(err);
+                resolve(data);
+            });
         });
     });
 };
@@ -54,29 +58,32 @@ function SwaggerResponse(req, responseCode) {
 /**
  * Get a swagger response object that is isolated from a server request object. This is useful
  * when you don't have a http server that has formed the request.
- * @param {string} method The request method.
- * @param {string} path The requested path.
+ * @param {object} req The request object
  * @param {string, number} responseCode
  * @param {string} swaggerFilePath
  */
-SwaggerResponse.lambda = function(method, path, responseCode, swaggerFilePath) {
+SwaggerResponse.lambda = function(req, responseCode, swaggerFilePath) {
 
     //validate input parameters
-    if (typeof method !== 'string') return Promise.reject('Invalid method: ' + method);
-    if (typeof path !== 'string') return Promise.reject('Invalid path: ' + path);
+    if (!req || typeof req !== 'object') return Promise.reject('Invalid request object: ' + req);
     if (!/\.(?:json|yaml)$/i.test(swaggerFilePath)) return Promise.reject('The swagger definition file path must be either a .yaml or .json file.');
-
-    const req = {
-        method: method,
-        url: path
-    };
 
     return readFile(swaggerFilePath, 'utf8')
         .then(function(content) {
-            swaggerObject = /\.json$/i.test(config.swagger) ?
+            const swaggerObject = /\.json$/i.test(swaggerFilePath) ?
                 JSON.parse(content) :
                 yaml.safeLoad(content);
-            return metadata(req);
+
+            // set request defaults
+            if (!req.hasOwnProperty('headers')) req.headers = {};
+            if (!req.headers.hasOwnProperty('content-type')) req.headers['content-type'] =
+                swaggerObject.hasOwnProperty('produces') && Array.isArray(swaggerObject.produces) && swaggerObject.produces.length > 0 ?
+                    swaggerObject.produces[0] :
+                    'application/json';;
+            if (!req.hasOwnProperty('method')) req.method = 'GET';
+            if (!req.hasOwnProperty('url')) req.url = '/';
+
+            return metadata(req, swaggerObject);
         })
         .then(function() {
             return SwaggerResponse(req, responseCode);
@@ -174,11 +181,10 @@ SwaggerResponse.swaggerFile = function(filePath) {
 function schemaArray(schema, chain) {
     const prop = schema.items;
     const hasProperties =  prop.hasOwnProperty('properties');
-    const prototype = {};
+    const prototype = Object.create(Array.prototype);
     const store = [];
     const type = getPropertyType(prop);
     const validator = getValidateFunction(schema.items, chain);
-    const writeMutators = ['fill', 'push', 'splice', 'unshift'];
     var prevLength = 0;
 
     function updateIndexGetSet() {
@@ -215,16 +221,6 @@ function schemaArray(schema, chain) {
     }
 
     // TODO: add proxy support - once NodeJS has proxies
-
-    // make all array functions callable through this object.
-    getAllProperties(Array.prototype)
-        .forEach(function(key) {
-            if (!/^_/.test(key) && !~writeMutators.indexOf(key) && typeof Array.prototype[key] === 'function') {
-                prototype[key] = function() {
-                    return store[key].apply(store, arguments);
-                };
-            }
-        });
 
     // define length property
     Object.defineProperty(prototype, 'length', {
