@@ -1,23 +1,94 @@
 # swagger-response
 
-The [npm swagger package](https://www.npmjs.com/package/swagger) is an awesome tool for turning your swagger definition files into a working API that will validates responses when they are sent. One thing it does not do is help you to build the response before sending.
+The [npm swagger package](https://www.npmjs.com/package/swagger) is an awesome tool for turning your swagger definition files into a working API that will validate responses when they are sent. One thing it does not do is help you to build the response before sending.
 
-This package provides a tool that makes it easy to build valid swagger responses that match your swagger definitions.
+This package provides a tool that makes it easy to build valid swagger responses that match your swagger definitions. **If you make a mistake while building the response then you'll know the exact line number where you made your mistake.**
 
 # Table of Contents
 
 * [Installation](#installation)
+* [Example Swagger Definition File](#example-swagger-definition-file)
 * [Examples](#examples)
 * [API](#api)
 * [Validation](#validation)
 * [Debugging](#debugging)
 * [Caveats](#caveats)
-* [Example Swagger Definition File](#example-swagger-definition-file)
 
 ## Installation
 
 ```sh
 $ npm install swagger-response
+```
+
+## Example Swagger Definition File
+
+All examples on this page use this same swagger definition file:
+
+```yaml
+swagger: "2.0"
+info:
+  version: "0.0.1"
+  title: Pets
+paths:
+  /pets:
+    x-swagger-router-controller: pets
+    get:
+      description: List all pets
+      operationId: listPets
+      responses:
+        200:
+          description: An paged array of pets
+          schema:
+            $ref: "#/definitions/Pets"
+  /pets/{petId}:
+    x-swagger-router-controller: pets
+    get:
+      description: Get a single pet.
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          description: The unique pet ID.
+          required: true
+          type: number
+      responses:
+        200:
+          description: A single pet.
+          schema:
+            $ref: "#/definitions/Pet"
+definitions:
+  hateoas:
+    properties:
+      get:
+        properties:
+          href:
+            type: string
+            default: "/pets/{petId}"
+          method:
+            type: string
+            default: GET
+      update:
+        properties:
+          href:
+            type: string
+            default: "/pets/{petId}"
+          method:
+            type: string
+            default: PUT
+  Pet:
+    properties:
+      links:
+        $ref: "#/definitions/hateoas"
+      id:
+        type: number
+      name:
+        type: string
+      species:
+        type: string
+  Pets:
+    type: array
+    items:
+      $ref: "#/definitions/Pet"
 ```
 
 ## Examples
@@ -342,91 +413,6 @@ exports.listPets = function(req, res) {
     response[0] = { id: 1, name: 'Mittens' };   // valid because the array length > 0
     res.json(response); // returns [{"id":1,"name":"Mittens"},{"id":2,"name":"Jack"}]
 };
-```
-
-## Example Swagger Definition File
-
-All examples on this page use this same swagger definition file:
-
-```yaml
-swagger: "2.0"
-info:
-  version: "0.0.1"
-  title: Pets
-paths:
-  /pets:
-    x-swagger-router-controller: pets
-    get:
-      description: List all pets
-      operationId: listPets
-      responses:
-        200:
-          description: An paged array of pets
-          schema:
-            $ref: "#/definitions/Pets"
-  /pets/{petId}:
-    x-swagger-router-controller: pets
-    get:
-      description: Get a single pet.
-      operationId: getPet
-      parameters:
-        - name: petId
-          in: path
-          description: The unique pet ID.
-          required: true
-          type: number
-      responses:
-        200:
-          description: A single pet.
-          schema:
-            $ref: "#/definitions/Pet"
-    put:
-      description: Update a pet.
-      operationId: updatePet
-      parameters:
-        - name: petId
-          in: path
-          description: The unique pet ID.
-          required: true
-          type: number
-      responses:
-        200:
-          description: A single pet.
-          schema:
-            $ref: "#/definitions/Pet"
-definitions:
-  hateoas:
-    properties:
-      get:
-        properties:
-          href:
-            type: string
-            default: "/pets/{petId}"
-          method:
-            type: string
-            default: GET
-      update:
-        properties:
-          href:
-            type: string
-            default: "/pets/{petId}"
-          method:
-            type: string
-            default: PUT
-  Pet:
-    properties:
-      links:
-        $ref: "#/definitions/hateoas"
-      id:
-        type: number
-      name:
-        type: string
-      species:
-        type: string
-  Pets:
-    type: array
-    items:
-      $ref: "#/definitions/Pet"
 ```
 
 
