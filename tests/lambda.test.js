@@ -7,16 +7,14 @@ describe('#lambda', function() {
     it('object response', function() {
         return Response.lambda({ url: '/pets/1234' }, 200, __dirname + '/resources/swagger.yaml')
             .then(function(response) {
-                expect(Array.isArray(response)).to.equal(false);
-                expect(typeof response).to.equal('object');
-                expect(response).to.not.equal(null);
+                expect(JSON.stringify(response)).to.equal('{}');
             });
     });
 
     it('array response', function() {
         return Response.lambda({ url: '/pets' }, 200, __dirname + '/resources/swagger.yaml')
             .then(function(response) {
-                expect(response).to.be.instanceOf(Array);
+                expect(JSON.stringify(response)).to.equal('[]');
             });
     });
 
