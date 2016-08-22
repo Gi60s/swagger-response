@@ -23,11 +23,6 @@ describe('swagger-response-2.0', function() {
                 req = { swagger: JSON.parse(definitionContent) };
             });
 
-            it('found default without specifying response code', function() {
-                var response = Response(req);
-                expect(response).to.have.ownProperty('isDefault');
-            });
-
             it('found default with specifying response code', function() {
                 var response = Response(req, 'default');
                 expect(response).to.have.ownProperty('isDefault');
@@ -63,7 +58,7 @@ describe('swagger-response-2.0', function() {
 
             beforeEach(function() {
                 const req = { swagger: JSON.parse(definitionContent) };
-                response = Response(req, 200);
+                response = Response(req, 200, { proxies: false });
             });
 
             it('boolean accepts boolean', function() {
@@ -133,7 +128,7 @@ describe('swagger-response-2.0', function() {
 
             beforeEach(function() {
                 const req = { swagger: JSON.parse(definitionContent) };
-                response = Response(req, 200);
+                response = Response(req, 200, { proxies: false });
             });
 
             it('string fails', function() {
@@ -173,7 +168,7 @@ describe('swagger-response-2.0', function() {
 
             beforeEach(function() {
                 const req = { swagger: JSON.parse(definitionContent) };
-                response = Response(req, 200);
+                response = Response(req, 200, { proxies: false });
             });
 
             it('initializes to empty array', function() {
@@ -230,7 +225,7 @@ describe('swagger-response-2.0', function() {
 
             beforeEach(function() {
                 const req = { swagger: JSON.parse(definitionContent) };
-                response = Response(req, 200);
+                response = Response(req, 200, { proxies: false });
             });
 
             it('initializes to empty array', function() {
