@@ -10,6 +10,16 @@
                   "type": "string"
                 }
               }
+            },
+            "bar": {
+              "type": "array",
+              "items": {
+                "properties": {
+                  "string": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         }
