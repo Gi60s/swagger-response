@@ -25,7 +25,7 @@ exports.response = Typed({
             type: Boolean,
             default: false
         },
-        enforcement: {
+        enforce: {
             type: Object,
             default: {},
             properties: {
@@ -39,14 +39,6 @@ exports.response = Typed({
                     default: true
                 },
                 minimum: {
-                    type: Boolean,
-                    default: true
-                },
-                exclusiveMaximum: {
-                    type: Boolean,
-                    default: true
-                },
-                exclusiveMinimum: {
                     type: Boolean,
                     default: true
                 },
