@@ -17,7 +17,7 @@
 'use strict';
 const Typed     = require('fully-typed');
 
-module.exports = Typed({
+exports.response = Typed({
     type: Object,
     default: {},
     properties: {
