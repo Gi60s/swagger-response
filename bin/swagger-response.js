@@ -1,100 +1,38 @@
 "use strict";
-const fs                = require('fs');
-const helper            = require('./helper');
-const Promise           = require('bluebird');
-const SchemaProxies     = require('./schema-proxies');
-const SchemaSanProxies  = require('./schema-san-proxies');
-const tools             = require('swagger-tools');
-const yaml              = require('js-yaml');
-
-const metadata = function(req, swaggerObject) {
-    const res = {};
-    return new Promise(function(resolve, reject) {
-        tools.initializeMiddleware(swaggerObject, function(middleware) {
-            middleware.swaggerMetadata(swaggerObject)(req, res, function(err, data) {
-                if (err) return reject(err);
-                resolve(data);
-            });
-        });
-    });
-};
-const readFile = Promise.promisify(fs.readFile, { context: fs });
+const enforcer          = require('./enforcer');
+const scheams           = require('./schemas');
+const signature         = require('./signature');
 
 module.exports = SwaggerResponse;
 
 /**
  * Get a managed object that will automatically make sure that you don't set values that you shouldn't.
  * If the response schema is not an object though then this function will throw an error.
- * @param {IncomingMessage, object} req
- * @param {string, number} responseCode
- * @param {object} [options={}]
- * @returns {object}
+ * @param {Object} schema The response schema to build objects from.
+ * @param {Object} [options={}] Options to apply to the response enforcer.
  * @throws {Error} in case of unexpected structure.
- * @constructor
+ * @returns {object}
  */
-function SwaggerResponse(req, responseCode, options) {
+function SwaggerResponse(schema, options) {
+    const config = scheams.response.normalize(options);
+    const type = enforcer.getSchemaType(schema);
+    const typeIsObject = type === 'object';
 
-    // normalize options
-    if (!options) options = {};
-    if (!options.hasOwnProperty('proxies')) options.proxies = true; // allow proxies if supported
-
-    // get the correct schema builder
-    const Schema = helper.supportsProxies() && options.proxies ? SchemaProxies : SchemaSanProxies;
-
-    // get the responses value
-    const responses = helper.getPropertyChainValue(req, 'swagger.operation.responses', '');
-
-    // get the schema definition
-    const schema = helper.getPropertyChainValue(responses, responseCode + '.schema', '');
-
-    // validate that the type is not primitive
-    const type = helper.getPropertyType(schema);
-    if (type !== 'object' && type !== 'array') {
-        throw Error('SwaggerResponse can only be managed if the schema is an array or object.');
+    // validate that the schema is not for primitives
+    if (!typeIsObject && type !== 'array') {
+        const err = Error('SwaggerResponse can only be enforced if the schema is an array or object.');
+        err.code = 'ESRENF';
+        throw err;
     }
 
-    // build the schema object
-    if (type === 'object') {
-        return Schema.object(schema, []);
-    } else {
-        return Schema.array(schema, []);
-    }
+    // if using enum then add enum signatures
+    if (config.enum) schema = enumSignatures(schema);
+
+    // return a function that enforces data
+    return function(value) {
+        return enforcer.validate(schema, '', config, value, false);
+    };
 }
-
-/**
- * Get a swagger response object that is isolated from a server request object. This is useful
- * when you don't have a http server that has formed the request.
- * @param {object} req The request object
- * @param {string, number} responseCode
- * @param {string} swaggerFilePath
- */
-SwaggerResponse.lambda = function(req, responseCode, swaggerFilePath) {
-
-    //validate input parameters
-    if (!req || typeof req !== 'object') return Promise.reject('Invalid request object: ' + req);
-    if (!/\.(?:json|yaml)$/i.test(swaggerFilePath)) return Promise.reject('The swagger definition file path must be either a .yaml or .json file.');
-
-    return readFile(swaggerFilePath, 'utf8')
-        .then(function(content) {
-            const swaggerObject = /\.json$/i.test(swaggerFilePath) ?
-                JSON.parse(content) :
-                yaml.safeLoad(content);
-
-            // set request defaults
-            if (!req.hasOwnProperty('headers')) req.headers = {};
-            if (!req.headers.hasOwnProperty('content-type')) req.headers['content-type'] =
-                swaggerObject.hasOwnProperty('produces') && Array.isArray(swaggerObject.produces) && swaggerObject.produces.length > 0 ?
-                    swaggerObject.produces[0] :
-                    'application/json';;
-            if (!req.hasOwnProperty('method')) req.method = 'GET';
-            if (!req.hasOwnProperty('url')) req.url = '/';
-
-            return metadata(req, swaggerObject);
-        })
-        .then(function() {
-            return SwaggerResponse(req, responseCode);
-        });
-};
 
 /**
  * Look for property values that are strings and perform variable value substitution. If a
@@ -120,7 +58,7 @@ SwaggerResponse.injectParameters = function(recursive, obj, data) {
         array.forEach(function(item) {
             if (item && typeof item === 'object') {
                 Object.keys(item).forEach(function(key) {
-                    var value = item[key];
+                    let value = item[key];
                     if (typeof value === 'string') {
                         value = SwaggerResponse.injectParameterPattern(value, data);
                         item[key] = value;
@@ -151,33 +89,46 @@ SwaggerResponse.injectParameterPattern = SwaggerResponse.injectorPatterns.handle
 /**
  * Determine whether the response can be managed. This will be false unless the response schema returns
  * an object or an array.
- * @param {IncomingMessage} req
- * @param {string, number} [responseCode=default]
+ * @param {object} schema The schema to enforce.
  * @returns {boolean}
  */
-SwaggerResponse.manageable = function(req, responseCode) {
-    try {
-        if (arguments.length === 1) responseCode = 'default';
-        responseCode = '' + responseCode;
-        const responses = helper.getPropertyChainValue(req, 'swagger.operation.responses', '');
-        const schema = helper.getPropertyChainValue(responses, responseCode + '.schema', '');
-        const type = helper.getPropertyType(schema);
-        return type === 'object' || type === 'array';
-    } catch (e) {
-        return false;
-    }
+SwaggerResponse.enforceable = function(schema) {
+    const type = enforcer.getSchemaType(schema);
+    return type === 'object' || type === 'array';
 };
+
+function enumSignatures(schema) {
+    if (Array.isArray(schema)) {
+        const copy = [];
+        schema.forEach(item => copy.push(enumSignatures(item)));
+        return copy;
+
+    } else if (schema && typeof schema === 'object') {
+        const copy = {};
+        Object.keys(schema).forEach(key => {
+            if (key === 'enum') {
+                copy.enum = [];
+                schema[key].forEach(item => {
+                    copy.enum.push(signature(item));
+                });
+            } else {
+                copy[key] = enumSignatures(schema[key]);
+            }
+        });
+        return copy;
+
+    } else {
+        return schema;
+    }
+}
 
 function injectorReplacement(rxGenerator) {
     return function(value, data) {
-        var rx = rxGenerator();
-        var match;
-        var property;
+        const rx = rxGenerator();
+        let match;
         while (match = rx.exec(value)) {
-            property = match[1];
-            if (data.hasOwnProperty(property)) {
-                value = value.replace(match[0], data[property]);
-            }
+            const property = match[1];
+            if (data.hasOwnProperty(property)) value = value.replace(match[0], data[property]);
         }
         return value;
     };
