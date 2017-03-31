@@ -91,6 +91,10 @@ exports.response = Typed({
                     default: true
                 }
             }
+        },
+        fastSignature: {
+            type: Boolean,
+            default: true
         }
     }
 });
