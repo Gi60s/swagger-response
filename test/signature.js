@@ -2,7 +2,7 @@
 const expect        = require('chai').expect;
 const signature     = require('../bin/signature');
 
-describe.only('signature', () => {
+describe('signature', () => {
 
     it('two similar objects', () => {
         const x = { a: 1, b: 2 };
