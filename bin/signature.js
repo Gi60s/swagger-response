@@ -37,7 +37,7 @@ function Signature(value, options) {
     });
 }
 
-Signature.prototype.equal = function(value) {
+Signature.prototype.equals = function(value) {
     value = new Signature(value, this.options);
     return this.encoded === value.encoded && this.value === value.value;
 };
