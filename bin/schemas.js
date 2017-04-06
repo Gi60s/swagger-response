@@ -50,7 +50,7 @@ exports.response = Typed({
                 },
                 minLength: {
                     type: Boolean,
-                    default: false
+                    default: true
                 },
                 pattern: {
                     type: Boolean,
@@ -78,11 +78,11 @@ exports.response = Typed({
                 },
                 minProperties: {
                     type: Boolean,
-                    default: true
+                    default: false
                 },
                 required: {
                     type: Boolean,
-                    default: true
+                    default: false
                 },
 
                 // general
