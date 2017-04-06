@@ -18,17 +18,16 @@
 'use strict';
 const crypto            = loadCrypto();
 
+module.exports = Signature;
+
 /**
  * Make a copy of the object in an ordered way so that a consistent has can be produced.
  * @param {*} value
  * @param {object} [options]
  * @returns {Signature}
  */
-module.exports = function (value, options) {
-    return new Signature(value, options);
-};
-
 function Signature(value, options) {
+    if (!this || this.constructor !== Signature) return new Signature(value, options);
     if (value && value.constructor === Signature) return value;
     const encode = value && typeof value === 'object';
     Object.defineProperties(this, {
@@ -39,7 +38,7 @@ function Signature(value, options) {
 }
 
 Signature.prototype.equal = function(value) {
-    value = module.exports(value, this.options);
+    value = new Signature(value, this.options);
     return this.encoded === value.encoded && this.value === value.value;
 };
 
