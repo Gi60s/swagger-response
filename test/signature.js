@@ -19,7 +19,17 @@ describe('signature', () => {
     it('recursive objects', () => {
         const a = {};
         a.b = { a: a };
-        expect(() => signature(a)).not.to.throw(Error);
+        expect(() => signature(a, { recursive: true })).not.to.throw(Error);
+    });
+
+    it('two similar recursive objects', () => {
+        const a = {};
+        a.b = { a: a };
+
+        const a2 = {};
+        a2.b = { a: a2 };
+
+        expect(signature(a, { recursive: true }).equal(a2)).to.be.true;
     });
 
 });
