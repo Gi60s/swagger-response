@@ -15,66 +15,82 @@
  *    limitations under the License.
  **/
 'use strict';
+'use strict';
 const crypto            = loadCrypto();
 
 /**
  * Make a copy of the object in an ordered way so that a consistent has can be produced.
  * @param {*} value
- * @param {boolean} [fastSignature=true] Faster to derive signature but requires more memory.
+ * @param {object} [options]
  * @returns {Signature}
  */
-module.exports = function (value, fastSignature) {
-    if (arguments.length < 2) fastSignature = true;
-    if (value && value.constructor === Signature) return value;
-    const encode = value && typeof value === 'object';
-    return new Signature(encode, encode ? hash(value, fastSignature) : value);
+module.exports = function (value, options) {
+    return new Signature(value, options);
 };
 
-function Signature(encoded, value) {
+function Signature(value, options) {
+    if (value && value.constructor === Signature) return value;
+    const encode = value && typeof value === 'object';
     Object.defineProperties(this, {
-        encoded: { value: encoded },
-        value: { value: value }
+        encoded: { value: encode },
+        options: { value: options },
+        value: { value: encode ? hash(value, options) : value }
     });
 }
 
 Signature.prototype.equal = function(value) {
-    value = module.exports(value);
+    value = module.exports(value, this.options);
     return this.encoded === value.encoded && this.value === value.value;
+};
+
+Signature.prototype.toString = function() {
+    return (this.encoded ? '1' : '0') + this.value;
 };
 
 /**
  * The hash function attempts to use crypto, otherwise it uses buffers (larger memory footprint)
  * @param {*} value
- * @param {boolean} fast
+ * @param {object} [options]
  * @returns {string}
  */
-function hash(value, fast) {
-    const map = new Map();
+function hash(value, options) {
+    if (!options || typeof options !== 'object') options = {};
+    if (!options.hasOwnProperty('fast')) options.fast = true;
+    if (!options.hasOwnProperty('recursive')) options.recursive = false;
+
+    const map = options.recursive ? new Map() : { set: noop, has: noop };
     let str = '';
 
     function build(value, chain) {
+        const type = typeof value;
+
         if (map.has(value)) {
-            return map.get(value);
+            str += '\u001A' + map.get(value) + '\u001B';
 
         } else if (Array.isArray(value)) {
-            if (value.__swaggerResponseSignature__) return value.__swaggerResponseSignature__;
+            const length = value.length;
 
-            let str = '';
             map.set(value, chain);
-            value.forEach((item, index) => str += build(item, chain + '/' + index));
-            return str;
+            str += '[';
+            for (let i = 0; i < length; i++) {
+                str += ',' + build(value[i], chain + '/' + i);
+            }
+            str += ']';
 
-        } else if (value && typeof value === 'object') {
-            if (value.__swaggerResponseSignature__) return value.__swaggerResponseSignature__;
-
-            //const copy = {};
+        } else if (value && type === 'object') {
             map.set(value, chain);
-
-            let str = '';
+            str += '{';
             const keys = Object.keys(value);
             keys.sort();
-            keys.forEach(key => str += key + build(value[key], chain + '/' + key));
+            const length = keys.length;
+            for (let i = 0; i < length; i++) {
+                const key = keys[i];
+                str += ',' + key + ':' + build(value[key], chain + '/' + key)
+            }
+            str += '}';
 
+        } else if (type === 'string') {
+            str += '\u0002' + value + '\u0003'
         } else {
             str += String(value);
         }
@@ -82,7 +98,7 @@ function hash(value, fast) {
 
     build(value, '#');
 
-    if (fast || !crypto) {
+    if (options.fast || !crypto) {
         return str;
     } else {
         const hash = crypto.createHash('sha256');
@@ -98,3 +114,5 @@ function loadCrypto() {
         return null;
     }
 }
+
+function noop() {}
