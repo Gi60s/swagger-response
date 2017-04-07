@@ -18,11 +18,7 @@ describe('enforcer', () => {
             const schema = { type: 'array' };
 
             it('mixed', () => {
-                expect(() => enforce.array(schema, '', options, ['a', true, 1, null], false)).not.to.throw(Error);
-            });
-
-            it('non serializable value', () => {
-                expect(code(() => enforce.array(schema, '', options, [function() {}], false))).to.equal('ESRTYPE');
+                expect(() => enforce(schema, options, ['a', true, 1, null])).not.to.throw(Error);
             });
 
         });
@@ -30,26 +26,28 @@ describe('enforcer', () => {
         describe('initialize to value', () => {
 
             it('valid', () => {
-                expect(() => enforce.array(schema, '', options, [1, 2, 3], false)).not.to.throw(Error);
+                expect(() => enforce(schema, options, [1, 2, 3])).not.to.throw(Error);
             });
 
             it('invalid', () => {
-                const c = code(() => enforce.array(schema, '', options, ['1'], false));
+                const c = code(() => enforce(schema, options, ['1']));
                 expect(c).to.equal('ESRTYPE');
             });
 
         });
 
-        describe('set by index', () => {
+        // TODO: validate length changes and unique changes
+
+        describe.only('set by index', () => {
 
             it('valid', () => {
-                const ar = enforce.array(schema, '', options, [], false);
+                const ar = enforce(schema, options, []);
                 ar[0] = 1;
                 expect(ar[0]).to.equal(1);
             });
 
             it('invalid', () => {
-                const ar = enforce.array(schema, '', options, [], false);
+                const ar = enforce(schema, options, []);
                 expect(code(() => ar[0] = '1')).to.equal('ESRTYPE');
             });
 
@@ -228,15 +226,67 @@ describe('enforcer', () => {
 
         });
 
+        describe('unique items', () => {
+            const options = schemas.response.normalize({ enforce: { uniqueItems: true } });
+            const schema = {
+                type: 'array',
+                uniqueItems: true,
+                items: {
+                    type: 'number'
+                }
+            };
+
+            it('can add unique', () => {
+                const ar = enforce.array(schema, '', options, [], false);
+                expect(() => ar.push(1)).not.to.throw(Error);
+            });
+
+            it('cannot add duplicate', () => {
+                const ar = enforce.array(schema, '', options, [], false);
+                ar.push(1);
+                expect(() => ar.push(1)).to.throw(Error);
+            });
+
+            it('can add again a popped item', () => {
+                const ar = enforce.array(schema, '', options, [], false);
+                ar.push(1);
+                ar.pop();
+                expect(() => ar.push(1)).not.to.throw(Error);
+            });
+
+            it('can add again a shifted item', () => {
+                const ar = enforce.array(schema, '', options, [], false);
+                ar.push(1);
+                ar.shift();
+                expect(() => ar.push(1)).not.to.throw(Error);
+            });
+
+            it('can add again a removed spliced item', () => {
+                const ar = enforce.array(schema, '', options, [], false);
+                ar.push(1);
+                ar.splice(0, 1);
+                expect(() => ar.push(1)).not.to.throw(Error);
+            });
+
+        });
+
     });
 
     describe('object', () => {
         const options = schemas.response.normalize({});
 
-        describe('schemaless items', () => {
+        describe('schemaless', () => {
             const schema = { type: 'object' };
 
-            it('mixed', () => {
+            it('array', () => {
+                expect(() => enforce.object(schema, '', options, ['a', true, 1, null], false)).not.to.throw(Error);
+            });
+
+            it('string', () => {
+                expect(() => enforce.object(schema, '', options, ['a', true, 1, null], false)).not.to.throw(Error);
+            });
+
+            it('boolean', () => {
                 expect(() => enforce.object(schema, '', options, ['a', true, 1, null], false)).not.to.throw(Error);
             });
 
@@ -246,10 +296,10 @@ describe('enforcer', () => {
 
         });
 
-        describe('schemaless items', () => {
-            const schema = { type: 'object' };
+        describe('property has defined type', () => {
 
             it('mixed', () => {
+                const schema = { type: 'object', properties: { foo: { type: 'string' } } };
                 expect(() => enforce.object(schema, '', options, ['a', true, 1, null], false)).not.to.throw(Error);
             });
 
