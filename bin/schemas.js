@@ -72,6 +72,10 @@ exports.response = Typed({
                 },
 
                 // objects
+                additionalProperties: {
+                    type: Boolean,
+                    default: true
+                },
                 maxProperties: {
                     type: Boolean,
                     default: true
