@@ -18,6 +18,10 @@ describe('convert-to', () => {
             expect(to.binary(1)).to.equal('00000001');
         });
 
+        it('full byte', () => {
+            expect(to.binary(255)).to.equal('11111111');
+        });
+
         it('large number', () => {
             expect(to.binary(256)).to.equal('0000000100000000');
         });
@@ -93,6 +97,15 @@ describe('convert-to', () => {
 
         it('Ma', () => {
             expect(to.byte('Ma')).to.equal('TWE=');
+        });
+
+        it('buffer', () => {
+            const b = Buffer.from('M');
+            expect(to.byte(b)).to.equal('TQ==')
+        });
+
+        it('invalid type', () => {
+            expect(() => to.byte(function() {})).to.throw(Error);
         });
 
     });
@@ -180,6 +193,14 @@ describe('convert-to', () => {
             expect(() => to.integer(Number.NaN)).to.throw(Error);
         });
 
+        it('true', () => {
+            expect(to.integer(true)).to.equal(1);
+        });
+
+        it('false', () => {
+            expect(to.integer(false)).to.equal(0);
+        });
+
     });
 
     describe('number', () => {
@@ -198,6 +219,14 @@ describe('convert-to', () => {
 
         it('NaN number', () => {
             expect(() => to.number(Number.NaN)).to.throw(Error);
+        });
+
+        it('true', () => {
+            expect(to.number(true)).to.equal(1);
+        });
+
+        it('false', () => {
+            expect(to.number(false)).to.equal(0);
         });
 
     });

@@ -105,19 +105,20 @@ exports.dateTime = function(value) {
 
 /**
  * Convert a value to an integer.
- * @param {string, number} value
+ * @param {string, number, boolean} value
  * @returns {number}
  */
 exports.integer = function(value) {
     const type = typeof value;
 
-    if (type === 'string') {
-        const v = parseInt(value);
-        if (!isNaN(v)) return v;
-
-    } else if (type === 'number' && !isNaN(value)) {
-        const v = Math.round(value);
-        if (!isNaN(v)) return v;
+    if (!isNaN(value)) {
+        if (type === 'string') {
+            return parseInt(value);
+        } else if (type === 'number') {
+            return Math.round(value);
+        } else {
+            return value ? 1 : 0;
+        }
     }
 
     throw Error('Cannot convert to integer. The value must be numeric. Received: ' + value);
@@ -125,18 +126,20 @@ exports.integer = function(value) {
 
 /**
  * Convert a value to a number.
- * @param {string, number} value
+ * @param {string, number, boolean} value
  * @returns {number}
  */
 exports.number = function(value) {
     const type = typeof value;
 
-    if (type === 'string') {
-        const v = parseFloat(value);
-        if (!isNaN(v)) return v;
-
-    } else if (type === 'number' && !isNaN(value)) {
-        return value;
+    if (!isNaN(value)) {
+        if (type === 'string') {
+            return parseFloat(value);
+        } else if (type === 'number') {
+            return value;
+        } else {
+            return value ? 1 : 0;
+        }
     }
 
     throw Error('Cannot convert to number. The value must be numeric. Received: ' + value);
