@@ -4,40 +4,37 @@ const same              = require('./same');
 
 module.exports = function enforcer(schema, options, initial) {
     schema = new PreppedSchema(schema, options);
-
-    // validate and where possible proxy
-    if (schema.type === 'array') {
-        if (arguments.length < 3) initial = [];
-        validate(schema, '', initial);
-        return arrayProxy(schema, '', initial);
-    } else if (schema.type === 'object') {
-        if (arguments.length < 3) initial = {};
-        validate(schema, '', initial);
-        return objectProxy(schema, '', initial);
-    } else if (arguments.length >= 3) {
-        return validate(schema, '', initial);
+    if (arguments.length < 3) {
+        if (schema.type === 'array') {
+            initial = [];
+        } else if (schema.type === 'object') {
+            initial = {};
+        }
     }
+    validate(schema, initial);
+    return getProxy(schema, initial);
 };
 
 /**
  * Create an array with schema enforcement.
  * @param {Object} schema The schema definition.
- * @param {string} path The path to this value.
  * @param {Array} initial The array to initialize from.
  * @returns {*[]}
  */
-function arrayProxy(schema, path, initial) {
+function arrayProxy(schema, initial) {
 
     const proxy = new Proxy(initial, {
         get: function(target, property) {
             switch (property) {
                 case '__swaggerResponseType__': return 'array';
+                case '__swaggerResponseProxyTarget__': return target;
 
                 case 'concat': return function(value) {
-                    validateValues(arguments, 0, 0);
                     const ar = target.concat.apply(target, arguments);
-                    validate(schema, '', ar);
-                    return arrayProxy(schema, '', ar);
+                    validateItems(ar, arguments, 0);
+                    validateMaxMinArrayLength(schema, ar.length);
+                    setItemProxies(arguments, 0);
+                    return arrayProxy(schema, ar);
                 };
 
                 case 'copyWithin': return function(index, start, end) {
@@ -46,21 +43,24 @@ function arrayProxy(schema, path, initial) {
                 };
 
                 case 'fill': return function(value, start, end) {
-                    arguments[0] = exports.validate(schema.items, path + '/' + start, options, value);
+                    if (schema.items) {
+                        validateItem(target, value);
+                        arguments[0] = getProxy(schema.items, value);
+                    }
                     target.fill.apply(target, arguments);
                     return proxy;
                 };
 
                 case 'filter': return function(callback, thisArg) {
                     const ar = target.filter.apply(target, arguments);
-                    validate(schema, '', ar);
-                    return arrayProxy(schema, '', ar);
+                    validate(schema, ar);
+                    return arrayProxy(schema, ar);
                 };
 
                 case 'map': return function(callback, thisArg) {
                     const ar = target.map.apply(target, arguments);
-                    validate(schema, '', ar);
-                    return arrayProxy(schema, '', ar);
+                    validate(schema, ar);
+                    return arrayProxy(schema, ar);
                 };
 
                 case 'pop': return function() {
@@ -69,8 +69,9 @@ function arrayProxy(schema, path, initial) {
                 };
 
                 case 'push': return function(value) {
-                    validateValues(arguments, 0, target.length);
+                    validateItems(target, arguments, 0);
                     validateLength(target + arguments.length);
+                    setItemProxies(arguments, 0);
                     return target.push.apply(target, arguments);
                 };
 
@@ -81,22 +82,24 @@ function arrayProxy(schema, path, initial) {
 
                 case 'slice': return function(begin, end) {
                     const ar = target.slice.apply(target, arguments);
-                    validate(schema, '', ar);
-                    return arrayProxy(schema, '', ar);
+                    validate(schema, ar);
+                    return arrayProxy(schema, ar);
                 };
 
                 case 'splice': return function(start, deleteCount, item) {
                     const hasDeleteCount = typeof deleteCount === 'number';
                     const index = hasDeleteCount ? 2 : 1;
-                    validateValues(arguments, index, start);
+                    validateItems(target, arguments, index);
                     validateLength(target + arguments.length - index - (hasDeleteCount ? deleteCount : 0));
+                    setItemProxies(arguments, index);
                     const ar = target.splice.apply(target, arguments);
-                    return arrayProxy(schema, '', ar);
+                    return arrayProxy(schema, ar);
                 };
 
                 case 'unshift': return function() {
-                    validateValues(arguments, 0, 0);
-                    validateLength(target + arguments.length);
+                    validateItems(target, arguments, 0);
+                    validateLength(target.length + arguments.length);
+                    setItemProxies(arguments, 0);
                     return target.unshift.apply(target, arguments);
                 };
 
@@ -107,7 +110,8 @@ function arrayProxy(schema, path, initial) {
             if (rx.integer.test(property)) {
                 const index = parseInt(property);
                 if (index > target.length) validateLength(index);
-                validateItem(target, property, value);
+                validateItem(target, value);
+                target[property] = schema.items ? getProxy(schema.items, value) : value;
             } else {
                 target[property] = value;
             }
@@ -117,35 +121,40 @@ function arrayProxy(schema, path, initial) {
 
     return proxy;
 
+    function setItemProxies(args, start) {
+        if (schema.items) {
+            const length = args.length;
+            for (let i = start; i < length; i++) args[i] = getProxy(schema.items, args[i]);
+        }
+    }
+
     function validateLength(length) {
-        validateMaxMinArrayLength(schema, path, length);
+        validateMaxMinArrayLength(schema, length);
     }
 
-    function validateItem(target, property, value) {
-        const fullPath = path + '/' + property;
-        if (schema.items) validate(schema.items, fullPath, value);
-        validateUniqueItems(schema, path, target, value);
-        setTargetValue(schema.items, fullPath, target, property, value, true);
+    function validateItem(target, value) {
+        if (schema.items) validate(schema.items, value);
+        validateUniqueItem(schema, target, value);
     }
 
-    function validateValues(args, start, index) {
-        for (let i = start; i < args.length; i++) args[i] = validateItem(args[i], start + index);
+    function validateItems(target, args, start) {
+        const length = args.length;
+        for (let i = start; i < length; i++) validateItem(target, args[i]);
     }
 }
 
 /**
  * Create an object with schema enforcement.
  * @param {object} schema The schema definition.
- * @param {string} path Position within the map data.
  * @param {Object} initial The initial value.
  * @returns {object}
  */
-function objectProxy(schema, path, initial) {
+function objectProxy(schema, initial) {
     return new Proxy(initial, {
         deleteProperty: function(target, property) {
             validateLength(target, property, false);
             if (schema.properties.hasOwnProperty(property) && schema.properties[property].required) {
-                error(path, 'Cannot delete required property: ' + property, 'REQ');
+                error('Cannot delete required property: ' + property, 'REQ');
             }
             delete target[property];
             return true;
@@ -157,18 +166,20 @@ function objectProxy(schema, path, initial) {
             }
         },
         set: function(target, property, value) {
-            const fullPath = path + '/' + property;
 
             if (schema.properties && schema.properties[property]) {
+                const subSchema = schema.properties[property];
                 validateLength(target, property, true);
-                setTargetValue(schema.properties[property], fullPath, target, property, value, true);
+                validate(subSchema, value);
+                target[property] = getProxy(subSchema, value);
 
             } else if (schema.additionalProperties) {
                 validateLength(target, property, true);
-                setTargetValue(schema.additionalProperties, fullPath, target, property, value, true);
+                validate(schema.additionalProperties, value);
+                target[property] = getProxy(schema.additionalProperties, value);
 
             } else {
-                error(path, 'Property not allowed: ' + property);
+                error('Property not allowed: ' + property);
             }
 
             return true;
@@ -179,129 +190,150 @@ function objectProxy(schema, path, initial) {
         const hasProperty = target.hasOwnProperty(property);
         const length = Object.keys(schema.properties).length;
         if (adding && !hasProperty) {
-            validateMaxMinPropertiesLength(schema, path, length + 1);
+            validateMaxMinPropertiesLength(schema, length + 1);
         } else if (!adding && hasProperty) {
-            validateMaxMinPropertiesLength(schema, path, length - 1);
+            validateMaxMinPropertiesLength(schema, length - 1);
         }
     }
 }
 
+
 /**
- * Set an objects property to a potentially proxied value
+ * Get a deep proxy for a value.
  * @param {object} schema
- * @param {string} path
- * @param {object} target
- * @param {string} property
  * @param {*} value
- * @param {boolean} needsValidation
+ * @returns {*}
  */
-function setTargetValue(schema, path, target, property, value, needsValidation) {
-    if (needsValidation) validate(schema, path, value);
+function getProxy(schema, value) {
     if (schema.type === 'array') {
-        target[property] = arrayProxy(schema, path, value);
+        if (schema.items) {
+            const length = value.length;
+            for (let i = 0; i < length; i++) value[i] = getProxy(schema.items, value[i]);
+        }
+        return arrayProxy(schema, value);
     } else if (schema.type === 'object') {
-        target[property] = objectProxy(schema, path, value);
+        const specifics = schema.properties || {};
+        Object.keys(value)
+            .forEach(key => {
+                const useSchema = specifics[key] || schema.additionalProperties || null;
+                if (useSchema) value[key] = getProxy(useSchema, value[key]);
+            });
+        return objectProxy(schema, value);
     } else {
-        target[property] = value;
+        return value;
     }
 }
 
 /**
  * Throw an error if any errors are found.
  * @param schema
- * @param path
  * @param value
  */
-function validate(schema, path, value) {
+function validate(schema, value) {
     const valueType = typeof value;
+
+    // validate that the value is serializable
+    validateSerializable(value);
+
+    // if no schema then we're done validating-
+    if (!schema) return;
 
     // array validation
     if (schema.type === 'array') {
 
         // validate type
-        if (!Array.isArray(value)) error(path, 'Invalid type: Expected an array. Received: ' + valueType, 'TYPE');
+        if (!Array.isArray(value)) error('Invalid type: Expected an array. Received: ' + valueType, 'TYPE');
 
         // validate max items and min items
-        validateMaxMinArrayLength(schema, path, value.length);
+        validateMaxMinArrayLength(schema, value.length);
 
         // validate unique items
-        validateUniqueItems(schema, path, [], value);
+        validateUniqueItems(schema, [], value);
 
         // validate each item in the value
-        if (schema.items) {
-            const length = value.length;
-            for (let i = 0; i < length; i++) {
-                validate(schema.items, path + '/' + i, value[i]);
-            }
-        }
+        const length = value.length;
+        for (let i = 0; i < length; i++) validate(schema.items, value[i]);
 
     // object validation
     } else if (schema.type === 'object') {
 
         // validate type
-        if (!value || valueType !== 'object') error(path, 'Invalid type: Expected a non null object. Received: ' + value, 'TYPE');
+        if (!value || valueType !== 'object' || Array.isArray(value)) error('Invalid type: Expected a non null object. Received: ' + value, 'TYPE');
 
         const length = schema.allOf.length;
         const valueProperties = Object.keys(value);
         const valuePropertiesLength = valueProperties.length;
-        for (let i = 0; i < length; i++) {
-            const sub = schema.allOf[i];
 
-            validateMaxMinPropertiesLength(sub, path, valuePropertiesLength);
+        // validate serializable per property
+        for (let i = 0; i < length; i++) validateSerializable(value[valueProperties[i]]);
+
+        // validate all schemas
+        const allOfLength = schema.allOf.length;
+        for (let i = 0; i < allOfLength; i++) {
+            const sub = schema.allOf[i];
+            const definedProperties = sub.properties ? Object.keys(sub.properties) : [];
+
+            validateMaxMinPropertiesLength(sub, valuePropertiesLength);
 
             if (sub.properties) {
-                const properties = Object.keys(sub.properties);
-                const propertiesLength = properties.length;
+                const propertiesLength = definedProperties.length;
                 for (let j = 0; j < propertiesLength; j++) {
-                    const property = properties[j];
+                    const property = definedProperties[j];
                     const propertySchema = sub.properties[property];
                     const valueHasProperty = value.hasOwnProperty(property);
 
                     if (propertySchema.required && !valueHasProperty) {
-                        error(path + '/' + property, 'Missing required property: ' + property, 'REQ');
+                        error('Missing required property: ' + property, 'REQ');
                     }
 
-                    if (valueHasProperty) validate(propertySchema, path + '/' + property, value[property]);
+                    if (valueHasProperty) validate(propertySchema, value[property]);
                 }
             }
 
             if (sub.additionalProperties) {
                 for (let j = 0; j < valuePropertiesLength; j++) {
                     const property = valueProperties[j];
-                    if (!sub.properties || !sub.properties.hasOwnProperty(property)) validate(sub.additionalProperties, path + '/' + property, value[property]);
+                    if (!sub.properties || !sub.properties.hasOwnProperty(property)) validate(sub.additionalProperties, value[property]);
+                }
+
+            } else if (sub.properties) {
+                const unknownProperties = valueProperties.filter(property => definedProperties.indexOf(property) === -1);
+                if (unknownProperties.length > 0) {
+                    error('Propert' + (unknownProperties.length > 1 ? 'ies' : 'y') + ' not allowed: ' + unknownProperties.join(', '), 'NPER');
                 }
             }
+
         }
 
     } else if (schema.type === 'number' || schema.type === 'integer') {
 
         // validate type
-        if (valueType !== 'number' || isNaN(value)) error(path, 'Invalid type: Expected a number or an integer. Received: ' + valueType, 'TYPE');
+        if (valueType !== 'number' || isNaN(value)) error('Invalid type: Expected a number or an integer. Received: ' + valueType, 'TYPE');
 
         // validate maximum
         if (schema.hasOwnProperty('maximum')) {
-            if (schema.exclusiveMaximum && value === schema.maximum) error(path, 'Value ' + value + ' over exclusive maximum ' + schema.maximum, 'MAX');
-            if (value > schema.maximum) error(path, 'Value ' + value + ' over ' + (schema.exclusiveMaximum ? 'exclusive ' : '') + 'maximum ' + schema.maximum, 'NMAX');
+            if (schema.exclusiveMaximum && value === schema.maximum) error('Value ' + value + ' over exclusive maximum ' + schema.maximum, 'MAX');
+            if (value > schema.maximum) error('Value ' + value + ' over ' + (schema.exclusiveMaximum ? 'exclusive ' : '') + 'maximum ' + schema.maximum, 'NMAX');
         }
 
         // validate minimum
         if (schema.hasOwnProperty('minimum')) {
-            if (schema.exclusiveMinimum && value === schema.minimum) error(path, 'Value ' + value + ' under exclusive minimum ' + schema.minimum, 'MIN');
-            if (value < schema.minimum) error(path, 'Value ' + value + ' under ' + (schema.exclusiveMinimum ? 'exclusive ' : '') + 'minimum ' + schema.minimum, 'NMIN');
+            if (schema.exclusiveMinimum && value === schema.minimum) error('Value ' + value + ' under exclusive minimum ' + schema.minimum, 'MIN');
+            if (value < schema.minimum) error('Value ' + value + ' under ' + (schema.exclusiveMinimum ? 'exclusive ' : '') + 'minimum ' + schema.minimum, 'NMIN');
         }
 
         // validate multiple of
         if (schema.hasOwnProperty('multipleOf') && value % schema.multipleOf !== 0) {
-            error(path, 'Value ' + value + ' not a multiple of ' + schema.multipleOf, 'NMULT');
+            error('Value ' + value + ' not a multiple of ' + schema.multipleOf, 'NMULT');
         }
 
         // validate integer
-        if (schema.type === 'integer' && !Number.isInteger(value)) error(path, 'Value ' + value + ' must be an integer.', 'NINT');
+        if (schema.type === 'integer' && !Number.isInteger(value)) error('Value ' + value + ' must be an integer.', 'NINT');
 
     } else if (schema.type === 'string') {
 
         // validate type
-        if (valueType !== 'string') error(path, 'Invalid type: Expected a string. Received: ' + valueType, 'TYPE');
+        if (valueType !== 'string') error('Invalid type: Expected a string. Received: ' + valueType, 'TYPE');
 
         // validate max length
         if (schema.hasOwnProperty('maxLength') && value.length > schema.maxLength) {
@@ -329,43 +361,59 @@ function validate(schema, path, value) {
                 break;
             }
         }
-        if (!found) error(path, 'Value ' + value + ' does not match enum options: ' + JSON.stringify(schema.enum, null, 2), 'ENUM');
+        if (!found) error('Value ' + value + ' does not match enum options: ' + JSON.stringify(schema.enum, null, 2), 'ENUM');
     }
 }
 
-function validateMaxMinArrayLength(schema, path, length) {
+function validateMaxMinArrayLength(schema, length) {
 
     // validate max items
-    if (schema.hasOwnProperty('maxItems') && length > schema.maxItems) error(path, 'Array length is greater than allowable maximum length', 'LEN');
+    if (schema.hasOwnProperty('maxItems') && length > schema.maxItems) error('Array length is greater than allowable maximum length', 'LEN');
 
     // validate min items
-    if (schema.hasOwnProperty('minItems') && length < schema.maxItems) error(path, 'Array length is less than allowable minimum length', 'LEN');
+    if (schema.hasOwnProperty('minItems') && length < schema.maxItems) error('Array length is less than allowable minimum length', 'LEN');
 }
 
-function validateMaxMinPropertiesLength(schema, path, length) {
+function validateMaxMinPropertiesLength(schema, length) {
     if (schema.hasOwnProperty('maxProperties') && length > schema.maxProperties) {
-        error(path, 'The object has more properties than the allowed maximum: ' + schema.maxProperties);
+        error('The object has more properties than the allowed maximum: ' + schema.maxProperties);
     }
 
     if (schema.hasOwnProperty('minProperties') && length < schema.minProperties) {
-        error(path, 'The object has fewer properties than the allowed minimum: ' + schema.minProperties);
+        error('The object has fewer properties than the allowed minimum: ' + schema.minProperties);
     }
 }
 
-function validateUniqueItems(schema, path, array, items) {
+function validateSerializable(value) {
+    const type = typeof value;
+
+    // non-serializable types
+    switch (type) {
+        case 'function':
+        case 'symbol':
+        case 'undefined':
+            error('Invalid type. Value type cannot be serialized to JSON string: ' + type, 'TYPE')
+    }
+}
+
+function validateUniqueItem(schema, array, item) {
+    if (schema.uniqueItems && array.find(x => same(x, item))) {
+        error('Array requires that all items be unique. Value is a duplicate: ' + item, 'UNIQ');
+    }
+}
+
+function validateUniqueItems(schema, array, items) {
     if (schema.uniqueItems) {
         const length = items.length;
-        for (let i = 0; i < length; i++) {
-            if (array.find((x, idx) => same(x, items[i]))) error(path, 'Array requires that all items be unique. Duplicates at indexes: ' + idx + ', ' + i, 'UNIQ')
-        }
+        for (let i = 0; i < length; i++) validateUniqueItem(schema, array, items[i]);
     }
 }
 
 
 
 
-function error(path, message, code) {
-    const err = Error('Error at ' + path + ': ' + message);
+function error(message, code) {
+    const err = Error('Error: ' + message);
     err.code = 'ESR' + code;
     throw err;
 }
@@ -413,7 +461,7 @@ function PreppedSchema(schema, options) {
         this.allOf.forEach(schema => {
 
             // get property keys if any
-            if (schema.properties) schema.propertyKeys = Object.keys(schema.properties);
+            schema.propertyKeys = schema.properties ? Object.keys(schema.properties) : [];
 
             // convert any defined properties to prepped schemas
             schema.propertyKeys.forEach(key => {
