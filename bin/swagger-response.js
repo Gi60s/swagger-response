@@ -1,7 +1,6 @@
 "use strict";
 const enforcer          = require('./enforcer');
 const scheams           = require('./schemas');
-const signature         = require('./signature');
 
 module.exports = SwaggerResponse;
 
