@@ -1,6 +1,6 @@
 # Swagger-Response
 
-Don't wait until your swagger response is sent to validate it. Validate every time you update the response, prior to sending, and know the exact line number where you entered bad data.
+Don't wait until your swagger response is sent to validate it. Validate the response as you build it, and if you mess up then know the exact line number where you entered bad data.
 
 ## Example
 
