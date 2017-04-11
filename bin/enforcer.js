@@ -28,7 +28,6 @@ function arrayProxy(schema, initial) {
         get: function(target, property) {
             switch (property) {
                 case '__swaggerResponseType__': return 'array';
-                case '__swaggerResponseProxyTarget__': return target;
 
                 case 'concat': return function(value) {
                     const ar = target.concat.apply(target, arguments);
@@ -65,19 +64,19 @@ function arrayProxy(schema, initial) {
                 };
 
                 case 'pop': return function() {
-                    validateLength(target - 1);
+                    validateLength(target.length - 1);
                     return target.pop();
                 };
 
                 case 'push': return function(value) {
                     validateItems(target, arguments, 0);
-                    validateLength(target + arguments.length);
+                    validateLength(target.length + arguments.length);
                     setItemProxies(arguments, 0);
                     return target.push.apply(target, arguments);
                 };
 
                 case 'shift': return function() {
-                    validateLength(target - 1);
+                    validateLength(target.length - 1);
                     return target.shift();
                 };
 
@@ -88,11 +87,9 @@ function arrayProxy(schema, initial) {
                 };
 
                 case 'splice': return function(start, deleteCount, item) {
-                    const hasDeleteCount = typeof deleteCount === 'number';
-                    const index = hasDeleteCount ? 2 : 1;
-                    validateItems(target, arguments, index);
-                    validateLength(target + arguments.length - index - (hasDeleteCount ? deleteCount : 0));
-                    setItemProxies(arguments, index);
+                    validateItems(target, arguments, 2);
+                    validateLength(target.length + arguments.length - 2 - (deleteCount || 0));
+                    setItemProxies(arguments, 2);
                     const ar = target.splice.apply(target, arguments);
                     return arrayProxy(schema, ar);
                 };
@@ -110,7 +107,7 @@ function arrayProxy(schema, initial) {
         set: function(target, property, value) {
             if (rx.integer.test(property)) {
                 const index = parseInt(property);
-                if (index > target.length) validateLength(index);
+                if (index > target.length) validateLength(index + 1);
                 validateItem(target, value);
                 target[property] = schema.items ? getProxy(schema.items, value) : value;
             } else {
@@ -154,42 +151,32 @@ function objectProxy(schema, initial) {
     return new Proxy(initial, {
         deleteProperty: function(target, property) {
             validateLength(target, property, false);
-            if (schema.properties.hasOwnProperty(property) && schema.properties[property].required) {
-                error('Cannot delete required property: ' + property, 'REQ');
-            }
+            validateObjectPropertyRequired(schema, property);
             delete target[property];
             return true;
         },
         get: function(target, property) {
             switch (property) {
-                case '__swaggerResponseSignature__': return null;
+                case '__swaggerResponseType__': return 'object';
                 default: return target[property];
             }
         },
         set: function(target, property, value) {
-
-            if (schema.properties && schema.properties[property]) {
-                const subSchema = schema.properties[property];
-                validateLength(target, property, true);
-                validate(subSchema, value);
-                target[property] = getProxy(subSchema, value);
-
-            } else if (schema.additionalProperties) {
-                validateLength(target, property, true);
-                validate(schema.additionalProperties, value);
-                target[property] = getProxy(schema.additionalProperties, value);
-
-            } else {
-                error('Property not allowed: ' + property);
-            }
-
+            validateSerializable(value);
+            validateLength(target, property, true);
+            validateObjectProperty(schema, property, value);
+            const subSchema = schema.properties && schema.properties[property]
+                ? schema.properties[property]
+                : schema.additionalProperties;
+            target[property] = subSchema ? getProxy(subSchema, value) : value;
+            validateObjectHasRequiredProperties(schema, target);
             return true;
         }
     });
 
     function validateLength(target, property, adding) {
         const hasProperty = target.hasOwnProperty(property);
-        const length = Object.keys(schema.properties).length;
+        const length = Object.keys(target).length;
         if (adding && !hasProperty) {
             validateMaxMinPropertiesLength(schema, length + 1);
         } else if (!adding && hasProperty) {
@@ -258,52 +245,22 @@ function validate(schema, value) {
     // object validation
     } else if (schema.type === 'object') {
 
-        // validate type
-        if (!value || valueType !== 'object' || Array.isArray(value)) error('Invalid type: Expected a non null object. Received: ' + value, 'TYPE');
-
-        const length = schema.allOf.length;
         const valueProperties = Object.keys(value);
         const valuePropertiesLength = valueProperties.length;
 
-        // validate serializable per property
-        for (let i = 0; i < length; i++) validateSerializable(value[valueProperties[i]]);
+        // validate type
+        if (!value || valueType !== 'object' || Array.isArray(value)) error('Invalid type: Expected a non null object. Received: ' + value, 'TYPE');
 
-        // validate all schemas
-        const allOfLength = schema.allOf.length;
-        for (let i = 0; i < allOfLength; i++) {
-            const sub = schema.allOf[i];
-            const definedProperties = sub.properties ? Object.keys(sub.properties) : [];
+        // validate that all required properties are accounted for
+        validateObjectHasRequiredProperties(schema, value);
 
-            validateMaxMinPropertiesLength(sub, valuePropertiesLength);
+        // validate property count is within bounds
+        validateMaxMinPropertiesLength(schema, valuePropertiesLength);
 
-            if (sub.properties) {
-                const propertiesLength = definedProperties.length;
-                for (let j = 0; j < propertiesLength; j++) {
-                    const property = definedProperties[j];
-                    const propertySchema = sub.properties[property];
-                    const valueHasProperty = value.hasOwnProperty(property);
-
-                    if (propertySchema.required && !valueHasProperty) {
-                        error('Missing required property: ' + property, 'REQ');
-                    }
-
-                    if (valueHasProperty) validate(propertySchema, value[property]);
-                }
-            }
-
-            if (sub.additionalProperties) {
-                for (let j = 0; j < valuePropertiesLength; j++) {
-                    const property = valueProperties[j];
-                    if (!sub.properties || !sub.properties.hasOwnProperty(property)) validate(sub.additionalProperties, value[property]);
-                }
-
-            } else if (sub.properties) {
-                const unknownProperties = valueProperties.filter(property => definedProperties.indexOf(property) === -1);
-                if (unknownProperties.length > 0) {
-                    error('Propert' + (unknownProperties.length > 1 ? 'ies' : 'y') + ' not allowed: ' + unknownProperties.join(', '), 'NPER');
-                }
-            }
-
+        // validate all value properties
+        for (let i = 0; i < valuePropertiesLength; i++) {
+            const property = valueProperties[i];
+            validateObjectProperty(schema, property, value[property]);
         }
 
     } else if (schema.type === 'number' || schema.type === 'integer') {
@@ -313,13 +270,13 @@ function validate(schema, value) {
 
         // validate maximum
         if (schema.hasOwnProperty('maximum')) {
-            if (schema.exclusiveMaximum && value === schema.maximum) error('Value ' + value + ' over exclusive maximum ' + schema.maximum, 'MAX');
+            if (schema.exclusiveMaximum && value === schema.maximum) error('Value ' + value + ' over exclusive maximum ' + schema.maximum, 'NMAX');
             if (value > schema.maximum) error('Value ' + value + ' over ' + (schema.exclusiveMaximum ? 'exclusive ' : '') + 'maximum ' + schema.maximum, 'NMAX');
         }
 
         // validate minimum
         if (schema.hasOwnProperty('minimum')) {
-            if (schema.exclusiveMinimum && value === schema.minimum) error('Value ' + value + ' under exclusive minimum ' + schema.minimum, 'MIN');
+            if (schema.exclusiveMinimum && value === schema.minimum) error('Value ' + value + ' under exclusive minimum ' + schema.minimum, 'NMIN');
             if (value < schema.minimum) error('Value ' + value + ' under ' + (schema.exclusiveMinimum ? 'exclusive ' : '') + 'minimum ' + schema.minimum, 'NMIN');
         }
 
@@ -372,16 +329,67 @@ function validateMaxMinArrayLength(schema, length) {
     if (schema.hasOwnProperty('maxItems') && length > schema.maxItems) error('Array length is greater than allowable maximum length', 'LEN');
 
     // validate min items
-    if (schema.hasOwnProperty('minItems') && length < schema.maxItems) error('Array length is less than allowable minimum length', 'LEN');
+    if (schema.hasOwnProperty('minItems') && length < schema.minItems) error('Array length is less than allowable minimum length', 'LEN');
 }
 
 function validateMaxMinPropertiesLength(schema, length) {
-    if (schema.hasOwnProperty('maxProperties') && length > schema.maxProperties) {
-        error('The object has more properties than the allowed maximum: ' + schema.maxProperties);
-    }
+    if (schema.allOf) {
+        const allOfLength = schema.allOf.length;
+        for (let i = 0; i < allOfLength; i++) validateMaxMinPropertiesLength(schema.allOf[i], length);
 
-    if (schema.hasOwnProperty('minProperties') && length < schema.minProperties) {
-        error('The object has fewer properties than the allowed minimum: ' + schema.minProperties);
+    } else {
+        if (schema.hasOwnProperty('maxProperties') && length > schema.maxProperties) {
+            error('The object has more properties than the allowed maximum: ' + schema.maxProperties, 'LEN');
+        }
+
+        if (schema.hasOwnProperty('minProperties') && length < schema.minProperties) {
+            error('The object has fewer properties than the allowed minimum: ' + schema.minProperties, 'LEN');
+        }
+    }
+}
+
+function validateObjectProperty(schema, property, value) {
+    if (schema.allOf) {
+        const allOfLength = schema.allOf.length;
+        for (let i = 0; i < allOfLength; i++) validateObjectProperty(schema.allOf[i], property, value);
+
+    } else {
+
+        if (schema.properties && schema.properties[property]) {
+            validate(schema.properties[property], value);
+
+        } else if (schema.additionalProperties) {
+            validate(schema.additionalProperties, value);
+
+        } else if (schema.properties) {
+            error('Property not allowed: ' + property, 'NPER');
+
+        } else {
+            validateSerializable(value);
+        }
+    }
+}
+
+function validateObjectPropertyRequired(schema, property) {
+    if (schema.allOf) {
+        const allOfLength = schema.allOf.length;
+        for (let i = 0; i < allOfLength; i++) validateObjectPropertyRequired(schema.allOf[i], property);
+
+    } else if (schema.properties && schema.properties[property] && schema.properties[property].required) {
+        error('Missing required property: ' + property, 'REQ');
+    }
+}
+
+function validateObjectHasRequiredProperties(schema, value) {
+    if (schema.allOf) {
+        const allOfLength = schema.allOf.length;
+        for (let i = 0; i < allOfLength; i++) validateObjectHasRequiredProperties(schema.allOf[i], value);
+
+    } else if (schema.properties) {
+        const valueProperties = Object.keys(value);
+        const missingProperties = Object.keys(schema.properties)
+            .filter(property => valueProperties.indexOf(property) === -1);
+        missingProperties.forEach(property => validateObjectPropertyRequired(schema, property));
     }
 }
 
@@ -406,7 +414,11 @@ function validateUniqueItem(schema, array, item) {
 function validateUniqueItems(schema, array, items) {
     if (schema.uniqueItems) {
         const length = items.length;
-        for (let i = 0; i < length; i++) validateUniqueItem(schema, array, items[i]);
+        const copy = array.slice(0);
+        for (let i = 0; i < length; i++) {
+            validateUniqueItem(schema, copy, items[i]);
+            copy.push(items[i]);
+        }
     }
 }
 
