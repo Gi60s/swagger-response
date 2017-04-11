@@ -19,6 +19,8 @@
 module.exports = PreppedSchema;
 
 function PreppedSchema(schema, options) {
+    if (!schema || typeof schema !== 'object') throw Error("Invalid schema provided. Must be a non-null object.");
+    if (!options || typeof options !== 'object') throw Error("Invalid options provided. Must be a non-null object.");
     if (schema && schema.constructor === PreppedSchema) return schema;
     const enforce = options.enforce;
     const prepped = this;
@@ -43,7 +45,7 @@ function PreppedSchema(schema, options) {
     if (this.type === 'array') {
 
         // if array items have a schema then prep that too
-        if (Array.isArray(this.items)) this.items = new PreppedSchema(this.items, options);
+        if (this.items) this.items = new PreppedSchema(this.items, options);
     }
 
     if (this.type === 'object') {
@@ -68,9 +70,8 @@ function PreppedSchema(schema, options) {
 }
 
 function getSchemaType(schema) {
-    if (!schema) return undefined;
     if (schema.type) return schema.type;
     if (schema.items) return 'array';
-    if (schema.properties) return 'object';
+    if (schema.properties || schema.additionalProperties || schema.allOf) return 'object';
     return undefined;
 }
