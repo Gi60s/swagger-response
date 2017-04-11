@@ -28,6 +28,7 @@ function arrayProxy(schema, initial) {
         get: function(target, property) {
             switch (property) {
                 case '__swaggerResponseType__': return 'array';
+                case '__swaggerResponseProxyTarget__': return target;
 
                 case 'concat': return function(value) {
                     const ar = target.concat.apply(target, arguments);
@@ -158,6 +159,7 @@ function objectProxy(schema, initial) {
         get: function(target, property) {
             switch (property) {
                 case '__swaggerResponseType__': return 'object';
+                case '__swaggerResponseProxyTarget__': return target;
                 default: return target[property];
             }
         },
