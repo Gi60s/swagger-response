@@ -1,5 +1,6 @@
 'use strict';
 const rx                = require('./rx');
+const PreppedSchema     = require('./prepped-schema');
 const same              = require('./same');
 
 module.exports = function enforcer(schema, options, initial) {
@@ -418,59 +419,3 @@ function error(message, code) {
     throw err;
 }
 
-function getSchemaType(schema) {
-    if (!schema) return undefined;
-    if (schema.type) return schema.type;
-    if (schema.items) return 'array';
-    if (schema.properties) return 'object';
-    return undefined;
-}
-
-function PreppedSchema(schema, options) {
-    if (schema && schema.constructor === PreppedSchema) return schema;
-    const enforce = options.enforce;
-    const prepped = this;
-
-    // copy schema properties
-    Object.assign(this, schema);
-
-    // update type
-    this.type = getSchemaType(schema);
-
-    // delete unenforced properties from the schema
-    [
-        'enum',
-        'multipleOf', 'maximum', 'minimum',
-        'maxLength', 'minLength', 'pattern',
-        'maxItems', 'minItems', 'uniqueItems',
-        'additionalProperties', 'maxProperties', 'minProperties', 'required'
-    ].forEach(key => {
-        if (!enforce[key] || !prepped.hasOwnProperty(key)) delete prepped[key]
-    });
-
-    if (this.type === 'array') {
-
-        // if array items have a schema then prep that too
-        if (Array.isArray(this.items)) this.items = new PreppedSchema(this.items, options);
-    }
-
-    if (this.type === 'object') {
-
-        if (!Array.isArray(this.allOf)) this.allOf = [ this ];
-
-        this.allOf.forEach(schema => {
-
-            // get property keys if any
-            schema.propertyKeys = schema.properties ? Object.keys(schema.properties) : [];
-
-            // convert any defined properties to prepped schemas
-            schema.propertyKeys.forEach(key => {
-                schema.properties[key] = new PreppedSchema(schema.properties[key], options);
-            });
-
-            // look for additionalProperties
-            if (schema.additionalProperties) schema.additionalProperties = new PreppedSchema(schema.additionalProperties, options);
-
-        });
-    }
-}
