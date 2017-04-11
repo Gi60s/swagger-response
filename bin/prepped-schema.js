@@ -50,22 +50,11 @@ function PreppedSchema(schema, options) {
 
     if (this.type === 'object') {
 
-        if (!Array.isArray(this.allOf)) this.allOf = [ this ];
-
-        this.allOf.forEach(schema => {
-
-            // get property keys if any
-            schema.propertyKeys = schema.properties ? Object.keys(schema.properties) : [];
-
-            // convert any defined properties to prepped schemas
-            schema.propertyKeys.forEach(key => {
-                schema.properties[key] = new PreppedSchema(schema.properties[key], options);
-            });
-
-            // look for additionalProperties
-            if (schema.additionalProperties) schema.additionalProperties = new PreppedSchema(schema.additionalProperties, options);
-
-        });
+        if (Array.isArray(this.allOf)) {
+            this.allOf.forEach(schema => prepObjectSchema(schema, options));
+        } else {
+            prepObjectSchema(this, options);
+        }
     }
 }
 
@@ -74,4 +63,17 @@ function getSchemaType(schema) {
     if (schema.items) return 'array';
     if (schema.properties || schema.additionalProperties || schema.allOf) return 'object';
     return undefined;
+}
+
+function prepObjectSchema(schema, options) {
+    // get property keys if any
+    schema.propertyKeys = schema.properties ? Object.keys(schema.properties) : [];
+
+    // convert any defined properties to prepped schemas
+    schema.propertyKeys.forEach(key => {
+        schema.properties[key] = new PreppedSchema(schema.properties[key], options);
+    });
+
+    // look for additionalProperties
+    if (schema.additionalProperties) schema.additionalProperties = new PreppedSchema(schema.additionalProperties, options);
 }
