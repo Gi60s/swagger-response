@@ -36,7 +36,7 @@ module.exports = function same(v1, v2) {
         if (length !== v2.length) return false;
 
         for (let i = 0; i < length; i++) {
-            if (!exports.same(v1[i], v2[i])) return false;
+            if (!same(v1[i], v2[i])) return false;
         }
 
         return true;
@@ -50,7 +50,7 @@ module.exports = function same(v1, v2) {
 
         for (let i = 0; i < length; i++) {
             const key = keys[i];
-            if (!exports.same(v1[key], v2[key])) return false;
+            if (!same(v1[key], v2[key])) return false;
         }
 
         return true;
