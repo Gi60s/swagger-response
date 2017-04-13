@@ -1,28 +1,32 @@
 'use strict';
-const rx                = require('./rx');
+const applyDefaults     = require('./apply-defaults');
 const PreppedSchema     = require('./prepped-schema');
+const rx                = require('./rx');
 const same              = require('./same');
 
 module.exports = function enforcer(schema, options, initial) {
     schema = new PreppedSchema(schema, options);
     if (arguments.length < 3) {
-        if (schema.type === 'array') {
-            initial = [];
+        if (options.useDefaults && schema.hasOwnProperty('default')) {
+            initial = schema.default;
+        } else if (schema.type === 'array') {
+            initial = applyDefaults(schema, options, []);
         } else if (schema.type === 'object') {
-            initial = {};
+            initial = applyDefaults(schema, options, {});
         }
     }
     validate(schema, initial);
-    return getProxy(schema, initial);
+    return getProxy(schema, options, initial);
 };
 
 /**
  * Create an array with schema enforcement.
- * @param {Object} schema The schema definition.
- * @param {Array} initial The array to initialize from.
+ * @param {object} schema The schema definition.
+ * @param {object} options The options configuration.
+ * @param {array} initial The array to initialize from.
  * @returns {*[]}
  */
-function arrayProxy(schema, initial) {
+function arrayProxy(schema, options, initial) {
 
     const proxy = new Proxy(initial, {
         get: function(target, property) {
@@ -31,11 +35,12 @@ function arrayProxy(schema, initial) {
                 case '__swaggerResponseProxyTarget__': return target;
 
                 case 'concat': return function(value) {
+                    applySomeDefaults(arguments, 0);
                     const ar = target.concat.apply(target, arguments);
                     validateItems(ar, arguments, 0);
                     validateMaxMinArrayLength(schema, ar.length);
                     setItemProxies(arguments, 0);
-                    return arrayProxy(schema, ar);
+                    return arrayProxy(schema, options, ar);
                 };
 
                 case 'copyWithin': return function(index, start, end) {
@@ -46,7 +51,7 @@ function arrayProxy(schema, initial) {
                 case 'fill': return function(value, start, end) {
                     if (schema.items) {
                         validateItem(target, value);
-                        arguments[0] = getProxy(schema.items, value);
+                        arguments[0] = getProxy(schema.items, options, value);
                     }
                     target.fill.apply(target, arguments);
                     return proxy;
@@ -55,13 +60,14 @@ function arrayProxy(schema, initial) {
                 case 'filter': return function(callback, thisArg) {
                     const ar = target.filter.apply(target, arguments);
                     validate(schema, ar);
-                    return arrayProxy(schema, ar);
+                    return arrayProxy(schema, options, ar);
                 };
 
                 case 'map': return function(callback, thisArg) {
                     const ar = target.map.apply(target, arguments);
+                    applySomeDefaults(ar, 0);
                     validate(schema, ar);
-                    return arrayProxy(schema, ar);
+                    return arrayProxy(schema, options, ar);
                 };
 
                 case 'pop': return function() {
@@ -83,16 +89,18 @@ function arrayProxy(schema, initial) {
 
                 case 'slice': return function(begin, end) {
                     const ar = target.slice.apply(target, arguments);
+                    applySomeDefaults(ar, 0);
                     validate(schema, ar);
-                    return arrayProxy(schema, ar);
+                    return arrayProxy(schema, options, ar);
                 };
 
                 case 'splice': return function(start, deleteCount, item) {
+                    applySomeDefaults(arguments, 2);
                     validateItems(target, arguments, 2);
                     validateLength(target.length + arguments.length - 2 - (deleteCount || 0));
                     setItemProxies(arguments, 2);
                     const ar = target.splice.apply(target, arguments);
-                    return arrayProxy(schema, ar);
+                    return arrayProxy(schema, options, ar);
                 };
 
                 case 'unshift': return function() {
@@ -110,7 +118,7 @@ function arrayProxy(schema, initial) {
                 const index = parseInt(property);
                 if (index > target.length) validateLength(index + 1);
                 validateItem(target, value);
-                target[property] = schema.items ? getProxy(schema.items, value) : value;
+                target[property] = schema.items ? getProxy(schema.items, options, value) : value;
             } else {
                 target[property] = value;
             }
@@ -120,10 +128,19 @@ function arrayProxy(schema, initial) {
 
     return proxy;
 
+    function applySomeDefaults(args, start) {
+        if (schema.items) {
+            const length = args.length;
+            for (let i = start; i < length; i++) {
+                args[i] = applyDefaults(schema.items, options, args[i]);
+            }
+        }
+    }
+
     function setItemProxies(args, start) {
         if (schema.items) {
             const length = args.length;
-            for (let i = start; i < length; i++) args[i] = getProxy(schema.items, args[i]);
+            for (let i = start; i < length; i++) args[i] = getProxy(schema.items, options, args[i]);
         }
     }
 
@@ -145,10 +162,11 @@ function arrayProxy(schema, initial) {
 /**
  * Create an object with schema enforcement.
  * @param {object} schema The schema definition.
- * @param {Object} initial The initial value.
+ * @param {object} options The options configuration.
+ * @param {object} initial The initial value.
  * @returns {object}
  */
-function objectProxy(schema, initial) {
+function objectProxy(schema, options, initial) {
     return new Proxy(initial, {
         deleteProperty: function(target, property) {
             validateLength(target, property, false);
@@ -164,13 +182,14 @@ function objectProxy(schema, initial) {
             }
         },
         set: function(target, property, value) {
+            value = applyDefaults(schema, options, value);
             validateSerializable(value);
             validateLength(target, property, true);
             validateObjectProperty(schema, property, value);
             const subSchema = schema.properties && schema.properties[property]
                 ? schema.properties[property]
                 : schema.additionalProperties;
-            target[property] = subSchema ? getProxy(subSchema, value) : value;
+            target[property] = subSchema ? getProxy(subSchema, options, value) : value;
             validateObjectHasRequiredProperties(schema, target);
             return true;
         }
@@ -188,27 +207,30 @@ function objectProxy(schema, initial) {
 }
 
 
+
+
 /**
  * Get a deep proxy for a value.
  * @param {object} schema
+ * @param {object} options
  * @param {*} value
  * @returns {*}
  */
-function getProxy(schema, value) {
+function getProxy(schema, options, value) {
     if (schema.type === 'array') {
         if (schema.items) {
             const length = value.length;
-            for (let i = 0; i < length; i++) value[i] = getProxy(schema.items, value[i]);
+            for (let i = 0; i < length; i++) value[i] = getProxy(schema.items, options, value[i]);
         }
-        return arrayProxy(schema, value);
+        return arrayProxy(schema, options, value);
     } else if (schema.type === 'object') {
         const specifics = schema.properties || {};
         Object.keys(value)
             .forEach(key => {
                 const useSchema = specifics[key] || schema.additionalProperties || null;
-                if (useSchema) value[key] = getProxy(useSchema, value[key]);
+                if (useSchema) value[key] = getProxy(useSchema, options, value[key]);
             });
-        return objectProxy(schema, value);
+        return objectProxy(schema, options, value);
     } else {
         return value;
     }
