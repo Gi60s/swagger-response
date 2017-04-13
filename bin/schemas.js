@@ -38,6 +38,10 @@ exports.response = Typed({
     type: Object,
     default: {},
     properties: {
+        autoFormat: {
+            type: Boolean,
+            default: true
+        },
         useDefaults: {
             type: Boolean,
             default: false

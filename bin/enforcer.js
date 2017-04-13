@@ -3,6 +3,7 @@ const applyDefaults     = require('./apply-defaults');
 const PreppedSchema     = require('./prepped-schema');
 const rx                = require('./rx');
 const same              = require('./same');
+const to                = require('./convert-to');
 
 module.exports = function enforcer(schema, options, initial) {
     schema = new PreppedSchema(schema, options);
@@ -223,6 +224,7 @@ function getProxy(schema, options, value) {
             for (let i = 0; i < length; i++) value[i] = getProxy(schema.items, options, value[i]);
         }
         return arrayProxy(schema, options, value);
+
     } else if (schema.type === 'object') {
         const specifics = schema.properties || {};
         Object.keys(value)
@@ -231,9 +233,23 @@ function getProxy(schema, options, value) {
                 if (useSchema) value[key] = getProxy(useSchema, options, value[key]);
             });
         return objectProxy(schema, options, value);
-    } else {
-        return value;
+
+    } else if (options.autoFormat) {
+        switch (schema.type) {
+            case 'boolean': return to.boolean(value);
+            case 'integer': return to.integer(value);
+            case 'number': return to.number(value);
+            case 'string':
+                switch (schema.format) {
+                    case 'binary': return to.binary(value);
+                    case 'byte': return to.byte(value);
+                    case 'date': return to.date(value);
+                    case 'date-time': return to.dateTime(value);
+                }
+        }
     }
+
+    return value;
 }
 
 /**
