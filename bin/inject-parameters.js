@@ -46,9 +46,9 @@ function injectParameters(value, parameters, options) {
     const config = schemas.injector.normalize(options);
 
     // if replacement is a string then get associated function
-    if (typeof options.replacement === 'string') options.replacement = injectorPatterns[options.replacement];
+    if (typeof config.replacement === 'string') config.replacement = injectorPatterns[config.replacement];
 
-    return inject(value, parameters, options);
+    return inject(value, parameters, config);
 }
 
 function inject(value, parameters, options) {
