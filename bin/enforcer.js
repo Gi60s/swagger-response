@@ -5,7 +5,7 @@ const rx                = require('./rx');
 const same              = require('./same');
 const to                = require('./convert-to');
 
-module.exports = function enforcer(schema, options, initial) {
+exports.enforcer = function enforcer(schema, options, initial) {
     schema = new PreppedSchema(schema, options);
     if (arguments.length < 3) {
         if (options.useDefaults && schema.hasOwnProperty('default')) {
@@ -19,6 +19,8 @@ module.exports = function enforcer(schema, options, initial) {
     validate(schema, initial);
     return getProxy(schema, options, initial);
 };
+
+exports.validate = validate;
 
 /**
  * Create an array with schema enforcement.
