@@ -68,7 +68,7 @@ exports.response = Typed({
                 },
                 uniqueItems: {
                     type: Boolean,
-                    default: false
+                    default: true
                 },
 
                 // objects
@@ -95,10 +95,6 @@ exports.response = Typed({
                     default: true
                 }
             }
-        },
-        fastSignature: {
-            type: Boolean,
-            default: true
         }
     }
 });
