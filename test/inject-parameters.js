@@ -63,4 +63,14 @@ describe('inject parameters', () => {
         expect(result).to.deep.equal({ foo: 'Bob is 12 years old today', bar: '12 is the age of Bob as of today' });
     });
 
+    it('custom replace', () => {
+        const options = {
+            replacement: function(value, parameters) {
+                return "I'm a little teapot.";
+            }
+        };
+        const value = injector('{name} is {age} years old {when}', { name: 'Bob', age: 12, when: 'today' }, options);
+        expect(value).to.equal("I'm a little teapot.");
+    });
+
 });
