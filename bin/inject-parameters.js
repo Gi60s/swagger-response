@@ -54,10 +54,10 @@ function injectParameters(value, parameters, options) {
 function inject(value, parameters, options) {
     const valueType = typeof value;
 
-    if (options.recursive && Array.isArray(value)) {
+    if (Array.isArray(value)) {
         return value.map(item => inject(item, parameters, options));
 
-    } else if (options.recursive && value && valueType === 'object') {
+    } else if (value && valueType === 'object') {
         const result = {};
         const keys = Object.keys(value);
         const length = keys.length;

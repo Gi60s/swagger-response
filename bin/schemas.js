@@ -30,11 +30,7 @@ exports.injector = Typed({
             {
                 type: Function
             }
-        ],
-        recursive: {
-            type: Boolean,
-            default: true
-        }
+        ]
     }
 });
 
