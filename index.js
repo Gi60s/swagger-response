@@ -2,11 +2,10 @@
 
 const enforcer          = require('./bin/enforcer');
 
-module.exports = SwaggerResponse;
-
-function SwaggerResponse(schema, options, initial) {
-    return enforcer(schema, options || {}, initial);
-}
-
-SwaggerResponse.is      = require('./bin/is');
-SwaggerResponse.to      = require('./bin/convert-to');
+module.exports = {
+    enforcer:   enforcer.enforcer,
+    is:         require('./bin/is'),
+    same:       require('./bin/same'),
+    to:         require('./bin/convert-to'),
+    validate:   enforcer.validate
+};
