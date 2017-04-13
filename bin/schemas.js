@@ -17,6 +17,27 @@
 'use strict';
 const Typed     = require('fully-typed');
 
+exports.injector = Typed({
+    type: Object,
+    default: {},
+    properties: {
+        replacement: [
+            {
+                type: String,
+                enum: ['colon', 'doubleHandlebar', 'handlebar'],
+                default: 'handlebar'
+            },
+            {
+                type: Function
+            }
+        ],
+        recursive: {
+            type: Boolean,
+            default: true
+        }
+    }
+});
+
 exports.response = Typed({
     type: Object,
     default: {},
