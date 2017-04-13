@@ -3,9 +3,11 @@ const applyDefaults     = require('./apply-defaults');
 const PreppedSchema     = require('./prepped-schema');
 const rx                = require('./rx');
 const same              = require('./same');
+const schemas           = require('./schemas');
 const to                = require('./convert-to');
 
 exports.enforcer = function enforcer(schema, options, initial) {
+    options = schemas.enforcer.normalize(options || {});
     schema = new PreppedSchema(schema, options);
     if (arguments.length < 3) {
         if (options.useDefaults && schema.hasOwnProperty('default')) {
@@ -20,7 +22,11 @@ exports.enforcer = function enforcer(schema, options, initial) {
     return getProxy(schema, options, initial);
 };
 
-exports.validate = validate;
+exports.validate = function(schema, options, value) {
+    options = schemas.enforcer.normalize(options || {});
+    schema = new PreppedSchema(schema, options);
+    validate(schema, value);
+};
 
 /**
  * Create an array with schema enforcement.
