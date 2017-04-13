@@ -34,7 +34,7 @@ exports.injector = Typed({
     }
 });
 
-exports.response = Typed({
+exports.enforcer = Typed({
     type: Object,
     default: {},
     properties: {
